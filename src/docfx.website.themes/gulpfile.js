@@ -12,18 +12,24 @@ var knownOptions = {
 };
 
 var options = minimist(process.argv.slice(2), knownOptions);
-var files = [
-    "fonts/*",
-    "partials/*",
+var templateFiles = [
     "layout/*",
-    "styles/*",
+    "partials/*",
     "*.js",
     "*.tmpl",
     "*.liquid",
+    "token.json",
+    "!gulpfile.js"
+];
+var webpageFiles = [
+    "fonts/*",
+    "styles/*",
     "favicon.ico",
     "logo.svg",
-    "token.json",
     "search-stopwords.json"];
+
+var files = templateFiles.concat(webpageFiles);
+
 var pack = {
     "common": [
         {
@@ -42,19 +48,6 @@ var pack = {
     "default(zh-cn)": [
         {
             "files": files,
-        }
-    ],
-    "iframe.html": [
-        {
-            "files": files,
-            "cwd": "common",
-        },
-        {
-            "files": files,
-            "cwd": "default",
-        },
-        {
-            "files": files, // Overrides the former one if file name is the same
         }
     ],
     "statictoc": [
@@ -76,7 +69,7 @@ var pack = {
             "cwd": "common",
         },
         {
-            "files": files,
+            "files": templateFiles,
             "cwd": "default",
         },
         {

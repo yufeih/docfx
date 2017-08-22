@@ -14,6 +14,10 @@ namespace Microsoft.DocAsCode.Build.TableOfContents
 
     public static class TocHelper
     {
+        private static readonly YamlDeserializerWithFallback _deserializer =
+            YamlDeserializerWithFallback.Create<TocViewModel>()
+            .WithFallback<TocRootViewModel>();
+
         public static IEnumerable<FileModel> Resolve(ImmutableList<FileModel> models, IHostService host)
         {
             var tocCache = new Dictionary<string, TocItemInfo>(FilePathComparer.OSPlatformSensitiveStringComparer);
@@ -79,22 +83,31 @@ namespace Microsoft.DocAsCode.Build.TableOfContents
                 throw new ArgumentNullException(nameof(file));
             }
 
+            object obj;
             try
             {
-                return new TocItemViewModel
-                {
-                    Items = YamlUtility.Deserialize<TocViewModel>(file)
-                };
+                obj = _deserializer.Deserialize(file);
             }
-            catch (YamlDotNet.Core.YamlException)
+            catch (Exception ex)
             {
-                var tocWithMetadata = YamlUtility.Deserialize<TocRootViewModel>(file);
+                throw new NotSupportedException($"{file} is not a valid TOC file.", ex);
+            }
+            if (obj is TocViewModel vm)
+            {
                 return new TocItemViewModel
                 {
-                    Items = tocWithMetadata.Items,
-                    Metadata = tocWithMetadata.Metadata
+                    Items = vm,
                 };
             }
+            if (obj is TocRootViewModel root)
+            {
+                return new TocItemViewModel
+                {
+                    Items = root.Items,
+                    Metadata = root.Metadata,
+                };
+            }
+            throw new NotSupportedException($"{file} is not a valid TOC file.");
         }
     }
 }

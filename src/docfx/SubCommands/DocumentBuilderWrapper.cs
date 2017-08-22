@@ -14,12 +14,13 @@ namespace Microsoft.DocAsCode.SubCommands
 
     using Microsoft.DocAsCode;
     using Microsoft.DocAsCode.Build.ConceptualDocuments;
+    using Microsoft.DocAsCode.Build.Engine;
     using Microsoft.DocAsCode.Build.Engine.Incrementals;
     using Microsoft.DocAsCode.Build.ManagedReference;
     using Microsoft.DocAsCode.Build.ResourceFiles;
     using Microsoft.DocAsCode.Build.RestApi;
+    using Microsoft.DocAsCode.Build.SchemaDriven;
     using Microsoft.DocAsCode.Build.TableOfContents;
-    using Microsoft.DocAsCode.Build.Engine;
     using Microsoft.DocAsCode.Common;
     using Microsoft.DocAsCode.Exceptions;
     using Microsoft.DocAsCode.Plugins;
@@ -36,7 +37,7 @@ namespace Microsoft.DocAsCode.SubCommands
         private readonly TemplateManager _manager;
         private readonly LogLevel _logLevel;
 
-        public DocumentBuilderWrapper(
+    public DocumentBuilderWrapper(
             BuildJsonConfig config,
             TemplateManager manager,
             string baseDirectory,
@@ -121,7 +122,7 @@ namespace Microsoft.DocAsCode.SubCommands
                 changeList = ChangeList.Parse(config.ChangesFile, config.BaseDirectory);
             }
 
-            using (var builder = new DocumentBuilder(assemblies, postProcessorNames, templateManager?.GetTemplatesHash(), config.IntermediateFolder, changeList?.From, changeList?.To))
+            using (var builder = new DocumentBuilder(assemblies, postProcessorNames, templateManager?.GetTemplatesHash(), config.IntermediateFolder, changeList?.From, changeList?.To, config.CleanupCacheHistory))
             using (new PerformanceScope("building documents", LogLevel.Info))
             {
                 builder.Build(ConfigToParameter(config, templateManager, changeList, baseDirectory, outputDirectory, templateDirectory).ToList(), outputDirectory);
@@ -130,11 +131,19 @@ namespace Microsoft.DocAsCode.SubCommands
 
         private static IEnumerable<Assembly> LoadPluginAssemblies(string pluginDirectory)
         {
-            yield return typeof(ConceptualDocumentProcessor).Assembly;
-            yield return typeof(ManagedReferenceDocumentProcessor).Assembly;
-            yield return typeof(ResourceDocumentProcessor).Assembly;
-            yield return typeof(RestApiDocumentProcessor).Assembly;
-            yield return typeof(TocDocumentProcessor).Assembly;
+            var defaultPluggedAssemblies = new List<Assembly>
+            {
+                typeof(ConceptualDocumentProcessor).Assembly,
+                typeof(ManagedReferenceDocumentProcessor).Assembly,
+                typeof(ResourceDocumentProcessor).Assembly,
+                typeof(RestApiDocumentProcessor).Assembly,
+                typeof(TocDocumentProcessor).Assembly,
+                typeof(SchemaDrivenDocumentProcessor).Assembly,
+            };
+            foreach (var assem in defaultPluggedAssemblies)
+            {
+                yield return assem;
+            }
 
             if (pluginDirectory == null || !Directory.Exists(pluginDirectory))
             {
@@ -157,13 +166,19 @@ namespace Microsoft.DocAsCode.SubCommands
                         Logger.LogVerbose("Skipping assembly: Microsoft.DocAsCode.EntityModel.");
                         continue;
                     }
-                    if (assemblyName == typeof(ValidateBookmark).Assembly.GetName().Name ||
-                        assemblyName == typeof(TocDocumentProcessor).Assembly.GetName().Name)
+                    if (assemblyName == typeof(ValidateBookmark).Assembly.GetName().Name)
                     {
-                        // work around, don't load assembly that has ValidateBookmark or TocDocumentProcessor, to prevent double loading
+                        // work around, don't load assembly that has ValidateBookmark, to prevent double loading
                         Logger.LogVerbose($"Skipping assembly: {assemblyName}.");
                         continue;
                     }
+
+                    if (defaultPluggedAssemblies.Select(n => n.GetName().Name).Contains(assemblyName))
+                    {
+                        Logger.LogVerbose($"Skipping default plugged assembly: {assemblyName}.");
+                        continue;
+                    }
+
                     try
                     {
                         assembly = Assembly.Load(assemblyName);
@@ -210,6 +225,10 @@ namespace Microsoft.DocAsCode.SubCommands
             if (config.XRefMaps != null)
             {
                 parameters.XRefMaps = config.XRefMaps.ToImmutableArray();
+            }
+            if(config.XRefServiceUrls != null)
+            {
+                parameters.XRefServiceUrls = config.XRefServiceUrls.ToImmutableArray();
             }
             if (!config.NoLangKeyword)
             {

@@ -64,6 +64,8 @@ namespace Microsoft.DocAsCode.Build.Engine
             return StringExtension.GetMd5String(sb.ToString());
         }
 
+        public CompositeResourceCollectionWithOverridden CreateTemplateResource() => CreateTemplateResource(_templates);
+
         private CompositeResourceCollectionWithOverridden CreateTemplateResource(IEnumerable<string> resources) =>
             new CompositeResourceCollectionWithOverridden(
                 resources.Select(s => _finder.Find(s)).Where(s => s != null));
@@ -75,9 +77,8 @@ namespace Microsoft.DocAsCode.Build.Engine
                 if (_themes != null && _themes.Count > 0)
                 {
                     TryExportResourceFiles(_themes, outputDirectory, overwrite);
+                    Logger.LogInfo($"Theme(s) {_themes.ToDelimitedString()} applied.");
                 }
-
-                Logger.LogInfo("Theme is applied.");
             }
         }
 

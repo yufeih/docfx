@@ -179,7 +179,7 @@ namespace Microsoft.DocAsCode.Build.Engine
 
         private HashSet<string> GetFilesToReplayMessages(List<ManifestItem> increItems)
         {
-            var files = new HashSet<string>();
+            var files = new HashSet<string>(FilePathComparer.OSPlatformSensitiveStringComparer);
             var sourcePaths = (from increItem in increItems
                                select increItem.SourceRelativePath).Distinct();
             foreach (var sourceRelativePath in sourcePaths)
@@ -210,21 +210,26 @@ namespace Microsoft.DocAsCode.Build.Engine
                     new ParallelOptions { MaxDegreeOfParallelism = _increContext.MaxParallelism },
                     item =>
                     {
-                        string cachedFileName;
-                        if (!_increContext.LastInfo.PostProcessOutputs.TryGetValue(item.RelativePath, out cachedFileName))
+                        if (!_increContext.LastInfo.PostProcessOutputs.TryGetValue(item.RelativePath, out string cachedFileName))
                         {
                             throw new BuildCacheException($"Last incremental post processor outputs should contain {item.RelativePath}.");
                         }
 
-                        IncrementalUtility.RetryIO(() =>
+                        // Copy when current base dir is not last base dir
+                        if (!FilePathComparerWithEnvironmentVariable.OSPlatformSensitiveRelativePathComparer.Equals(
+                            _increContext.CurrentBaseDir,
+                            _increContext.LastBaseDir))
                         {
-                            // Copy last cached file to current cache.
-                            var newFileName = IncrementalUtility.GetRandomEntry(_increContext.CurrentBaseDir);
-                            var currentCachedFile = Path.Combine(Environment.ExpandEnvironmentVariables(_increContext.CurrentBaseDir), newFileName);
-                            var lastCachedFile = Path.Combine(Environment.ExpandEnvironmentVariables(_increContext.LastBaseDir), cachedFileName);
-                            File.Copy(lastCachedFile, currentCachedFile);
-                            item.LinkToPath = Path.Combine(_increContext.CurrentBaseDir, newFileName);
-                        });
+                            IncrementalUtility.RetryIO(() =>
+                            {
+                                // Copy last cached file to current cache.
+                                var newFileName = IncrementalUtility.GetRandomEntry(_increContext.CurrentBaseDir);
+                                var currentCachedFile = Path.Combine(Environment.ExpandEnvironmentVariables(_increContext.CurrentBaseDir), newFileName);
+                                var lastCachedFile = Path.Combine(Environment.ExpandEnvironmentVariables(_increContext.LastBaseDir), cachedFileName);
+                                File.Copy(lastCachedFile, currentCachedFile);
+                                item.LinkToPath = Path.Combine(_increContext.CurrentBaseDir, newFileName);
+                            });
+                        }
                     });
             }
         }
@@ -257,8 +262,7 @@ namespace Microsoft.DocAsCode.Build.Engine
                     {
                         foreach (var pair in increItemsGroup)
                         {
-                            List<ManifestItem> cachedItems;
-                            if (!lastItemsGroup.TryGetValue(pair.Key, out cachedItems))
+                            if (!lastItemsGroup.TryGetValue(pair.Key, out List<ManifestItem> cachedItems))
                             {
                                 throw new BuildCacheException($"Last manifest items doesn't contain the item with source relative path '{pair.Key}.'");
                             }

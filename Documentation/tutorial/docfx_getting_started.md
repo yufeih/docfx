@@ -14,7 +14,7 @@ If you are interested in creating your own website with your own styles, you can
 *DocFX* also has the following cool features:
 
 * Integration with your source code. You can click "View Source" on an API to navigate to the source code in GitHub (your source code must be pushed to GitHub).
-* Cross-platform support. We have both exe version that runs under Windows and a .NET Core version that runs cross platform.
+* Cross-platform support. We have exe version that runs under Windows. It can also runs cross platforms on Linux/macOS with Mono.
 * Integration with Visual Studio. You can seamlessly use *DocFX* within Visual Studio.
 * Markdown extensions. We introduced *DocFX Flavored Markdown(DFM)* to help you write API documentation. DFM is *100%* compatible with *GitHub Flavored Markdown(GFM)* with some useful extensions, like *file inclusion*, *code snippet*, *cross reference*, and *yaml header*.
 For detailed description about DFM, please refer to [DFM](../spec/docfx_flavored_markdown.md).
@@ -41,7 +41,31 @@ docfx docfx_project\docfx.json --serve
 ```
 
 Now you can view the generated website on http://localhost:8080.
-3. Use *DocFX* with a Build Server
+
+3. Use *DocFX* integrated with Visual Studio
+---------------
+
+*Step1.* Install the [`docfx.console`](https://www.nuget.org/packages/docfx.console/) (formerly `docfx.msbuild`) nuget package on the project that you want to document.
+It add itself to the build targets and add the `docfx.json` configuration file along with other files.
+
+*Step2.* Compile, a `_site` folder is generated with the documentation.
+
+> [!NOTE]
+> *Possible warning*:
+> - *Cache is corrupted*: if your project targets multiple frameworks, you have to indicate one to be the main for the documentation, through the [`TargetFramework` property](https://github.com/dotnet/docfx/issues/1254#issuecomment-294080535) in `docfx.json`:
+>
+>      "metadata": [
+>        {
+>          "src": "...",
+>          "dest": "...",
+>          "properties": {
+>            "TargetFramework": <one_of_your_framework>
+>          }
+>        },
+>      ]
+
+
+4. Use *DocFX* with a Build Server
 ---------------
 
 *DocFX* can be used in a Continuous Integration environment.
@@ -63,7 +87,7 @@ Many build systems set an environment variable with the branch name.  DocFX uses
 > [!NOTE]
 > *Known issue in AppVeyor*: Currently `platform: Any CPU` in *appveyor.yml* causes `docfx metadata` failure. https://github.com/dotnet/docfx/issues/1078
 
-4. Build from source code
+5. Build from source code
 ----------------
 As a prerequisite, you need:
 - [Visual Studio 2017](https://www.visualstudio.com/vs/) with *.NET Core cross-platform development* toolset

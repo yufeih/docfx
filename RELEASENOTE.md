@@ -1,8 +1,49 @@
-﻿Version Notes (Current Version: v2.20)
+﻿Version Notes (Current Version: v2.24)
 =======================================
 
-v2.20 (Pre-release)
+v2.24 (Pre-release)
 -----------
+
+v2.23
+-----------
+1. Improve error message for invalid toc yaml file.
+2. Use xhtml for dfm default setting.
+3. Add language support for aspx-cs and aspx-vb in code snippet.
+4. Bug fixed:
+   1. Fix #1825: ArgumentNullException when EII implements a member with EditorBrowsableState.Never.
+   2. Fix #1937: Anchor icon overlays Note icon.
+   3. Fix #1951, #1905: Running DocFX from outside the folder fails
+   4. Fix #1915: Cannot generate docs of two assemblies
+   5. Fix #1900: Add back Microsoft.CodeAnalysis.Csharp.Features.dll dependency
+
+v2.22
+-----------
+1. Support *REST* extensibility by `rest.tagpage` and `rest.operationpage` plugins, to split the original *REST* API page into smaller pages. Refer to [plugins dashboard](http://dotnet.github.io/docfx/templates-and-plugins/plugins-dashboard.html) for more details.
+2. Bug fixed:
+   1. Fix _rel unfound when href is url decoded.
+   2. Fix #1886: Fails when project doesn't contain git remote information.
+   3. Fix toc restruction to support expand child by sequence.
+   4. Ignore default plugged assemblies when loading plugins.
+
+v2.20
+-----------
+1. Add anchor links to default theme.
+2. Disable LRU cache as it has race condition bug and not easy to fix.
+3. PDF improvements:
+   1. Intermediate html files are now removed by default, you can use `--keepRawFiles` option to keep them.
+   2. Add syntax highlight to PDF, it is using highlight.js in client-side js.
+   3. Add hook files to css and js, you can now customize PDF styles by adding your own `main.css` and `main.js`.
+4. Change the default behavior of incremental build that it is always based on the same cache folder (originally the cache folder changes in every build and copy historical files form last cache folder). You can use `--cleanupCacheHistory` option to cleanup the historical cache data.
+5. Bug fixes:
+   1. Fix #1817: Error extracting metadata when containing constant surrogate unicode character.
+   2. Fix #1655: Using hashtag in external cross reference broken.
+   3. Fix #219: Fails when source code contains two type names that differ only in case
+   4. Fix #164: Clean up previous auto-generated metadata YAML files when calling `docfx metadata`
+   5. Fix #1797: the command docfx template list does not show the pdf template
+   6. Fix #1803: Overriding example with *content in same file as other overrides doesn't work
+   7. Fix #1807: XREF link to API doc with wildcard UID not getting generated
+   8. Fix #1823: Metadata being generated from referenced projects
+   9. FIx #1824: Change generated .manifest file to be indented and ordered.
 
 v2.19
 -----------

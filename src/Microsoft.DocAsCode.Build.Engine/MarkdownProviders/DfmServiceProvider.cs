@@ -23,8 +23,8 @@ namespace Microsoft.DocAsCode.Build.Engine
         public IMarkdownService CreateMarkdownService(MarkdownServiceParameters parameters)
         {
             IReadOnlyList<string> fallbackFolders = null;
-            object obj;
-            if (parameters.Extensions != null && parameters.Extensions.TryGetValue("fallbackFolders", out obj))
+            object obj = null;
+            if (parameters.Extensions?.TryGetValue("fallbackFolders", out obj) == true)
             {
                 try
                 {
@@ -34,6 +34,11 @@ namespace Microsoft.DocAsCode.Build.Engine
                 {
                     // Swallow cast exception. 
                 }
+            }
+
+            if (parameters.Extensions?.TryGetValue("shouldFixId", out obj) == true)
+            {
+                ShouldFixId = obj as bool? ?? true;
             }
 
             return new DfmService(
@@ -47,6 +52,8 @@ namespace Microsoft.DocAsCode.Build.Engine
         }
 
         protected virtual bool LegacyMode => false;
+
+        protected virtual bool ShouldFixId { get; set; }
 
         [ImportMany]
         public IEnumerable<IMarkdownTokenTreeValidator> TokenTreeValidator { get; set; } = Enumerable.Empty<IMarkdownTokenTreeValidator>();
@@ -81,16 +88,23 @@ namespace Microsoft.DocAsCode.Build.Engine
             {
                 var options = DocfxFlavoredMarked.CreateDefaultOptions();
                 options.LegacyMode = provider.LegacyMode;
+                options.ShouldFixId = provider.ShouldFixId;
                 options.ShouldExportSourceInfo = true;
+                options.XHtml = true;
                 _builder = new DfmEngineBuilder(
                     options,
                     baseDir,
                     templateDir,
                     fallbackFolders,
-                    container);
-                _builder.TokenTreeValidator = MarkdownTokenTreeValidatorFactory.Combine(provider.TokenTreeValidator);
+                    container)
+                {
+                    TokenTreeValidator = MarkdownTokenTreeValidatorFactory.Combine(provider.TokenTreeValidator)
+                };
                 _tokens = tokens;
-                _renderer = CustomizedRendererCreator.CreateRenderer(new DfmRenderer { Tokens = _tokens }, provider.DfmRendererPartProviders, parameters);
+                _renderer = CustomizedRendererCreator.CreateRenderer(
+                    new DfmRenderer { Tokens = _tokens },
+                    provider.DfmRendererPartProviders,
+                    parameters);
                 foreach (var c in provider.DfmEngineCustomizers)
                 {
                     c.Customize(_builder, parameters);
@@ -98,7 +112,11 @@ namespace Microsoft.DocAsCode.Build.Engine
                 _incrementalContextHash = ComputeIncrementalContextHash(baseDir, templateDir, provider.TokenTreeValidator, parameters);
             }
 
-            private static string ComputeIncrementalContextHash(string baseDir, string templateDir, IEnumerable<IMarkdownTokenTreeValidator> tokenTreeValidator, IReadOnlyDictionary<string, object> parameters)
+            private static string ComputeIncrementalContextHash(
+                string baseDir,
+                string templateDir,
+                IEnumerable<IMarkdownTokenTreeValidator> tokenTreeValidator,
+                IReadOnlyDictionary<string, object> parameters)
             {
                 var content = (StringBuffer)"dfm";
                 if (baseDir != null)

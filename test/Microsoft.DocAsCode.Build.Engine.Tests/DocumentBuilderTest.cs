@@ -6,9 +6,12 @@ namespace Microsoft.DocAsCode.Build.Engine.Tests
     using System;
     using System.Collections.Generic;
     using System.Collections.Immutable;
+    using System.Net;
+    using System.Net.Http;
+    using System.Threading.Tasks;
     using System.IO;
     using System.Reflection;
-
+    
     using Newtonsoft.Json.Linq;
     using Xunit;
 
@@ -100,6 +103,7 @@ namespace Microsoft.DocAsCode.Build.Engine.Tests
                     "Test invalid xref with attribute: <xref href=\"invalid\" alt=\"Foo&lt;T&gt;\"/>",
                     "Test invalid xref with attribute: <xref href=\"invalid\" fullname=\"Foo&lt;T&gt;\"/>",
                     "Test external xref with absolute URL and anchor: @str",
+                    "Test invalid autolink xref: <xref:?displayProperty=fullName>",
                     "<p>",
                     "test",
                 },
@@ -204,7 +208,7 @@ tagRules : [
                             "<!-- I'm not title-->",
                             "<!-- Raw title is in the line below -->",
                             "",
-                            $"<p sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"11\" sourceendlinenumber=\"31\">Test XRef: <xref href=\"XRef1\" data-throw-if-not-resolved=\"False\" data-raw-source=\"@XRef1\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"11\" sourceendlinenumber=\"11\"></xref>",
+                            $"<p sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"11\" sourceendlinenumber=\"32\">Test XRef: <xref href=\"XRef1\" data-throw-if-not-resolved=\"False\" data-raw-source=\"@XRef1\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"11\" sourceendlinenumber=\"11\"></xref>",
                             $"Test link: <a href=\"~/{_inputFolder}/test/test.md\" data-raw-source=\"[link text](test/test.md)\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"12\" sourceendlinenumber=\"12\">link text</a>",
                             $"Test link: <a href=\"~/{resourceFile}\" data-raw-source=\"[link text 2](../Microsoft.DocAsCode.Build.Engine.Tests.dll)\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"13\" sourceendlinenumber=\"13\">link text 2</a>",
                             $"Test link style xref: <a href=\"xref:XRef2\" title=\"title\" data-raw-source=\"[link text 3](xref:XRef2 &quot;title&quot;)\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"14\" sourceendlinenumber=\"14\">link text 3</a>",
@@ -223,6 +227,7 @@ tagRules : [
                             "Test invalid xref with attribute: <xref href=\"invalid\" alt=\"Foo&lt;T&gt;\"></xref>",
                             "Test invalid xref with attribute: <xref href=\"invalid\" fullname=\"Foo&lt;T&gt;\"></xref>",
                             $"Test external xref with absolute URL and anchor: <xref href=\"str\" data-throw-if-not-resolved=\"False\" data-raw-source=\"@str\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"29\" sourceendlinenumber=\"29\"></xref>",
+                            $"Test invalid autolink xref: <xref href=\"?displayProperty=fullName\" data-throw-if-not-resolved=\"True\" data-raw-source=\"&lt;xref:?displayProperty=fullName&gt;\" sourcefile=\"{_inputFolder}/test.md\" sourcestartlinenumber=\"30\" sourceendlinenumber=\"30\"></xref>",
                             "<p>",
                             @"test</p>",
                             ""),
@@ -253,6 +258,7 @@ tagRules : [
                             "Test invalid xref with attribute: <span class=\"xref\">Foo&lt;T&gt;</span>",
                             "Test invalid xref with attribute: <span class=\"xref\">Foo&lt;T&gt;</span>",
                             "Test external xref with absolute URL and anchor: <a class=\"xref\" href=\"https://docs.python.org/3.5/library/stdtypes.html#str\">str</a>",
+                            "Test invalid autolink xref: &lt;xref:?displayProperty=fullName&gt;",
                             "<p>",
                             "test</p>",
                             ""),
@@ -809,6 +815,52 @@ exports.getOptions = function (){
                         "<a href=\"../b/invalid-b.md\">link b</a></p>", ""),
                     File.ReadAllText(conceptualOutputPath));
             }
+        }
+
+        private class FakeResponseHandler : DelegatingHandler
+        {
+            private readonly Dictionary<Uri, HttpResponseMessage> _fakeResponses = new Dictionary<Uri, HttpResponseMessage>();
+
+            public void AddFakeResponse(Uri uri, HttpResponseMessage responseMessage)
+            {
+                _fakeResponses.Add(uri, responseMessage);
+            }
+
+            protected async override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, System.Threading.CancellationToken cancellationToken)
+            {
+                if (_fakeResponses.ContainsKey(request.RequestUri))
+                {
+                    return _fakeResponses[request.RequestUri];
+                }
+                else
+                {
+                    return new HttpResponseMessage(HttpStatusCode.NotFound) { RequestMessage = request };
+                }
+            }
+        }
+
+        [Fact]
+        public void TestBuildWithXrefService()
+        {
+            var fakeResponseHandler = new FakeResponseHandler();
+            fakeResponseHandler.AddFakeResponse(new Uri("http://example.org/test1"), new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("[]")
+            });
+            fakeResponseHandler.AddFakeResponse(new Uri("http://example.org/test2"), new HttpResponseMessage
+            {
+                StatusCode = HttpStatusCode.OK,
+                Content = new StringContent("[{'uid':'csharp_coding_standards', 'name':'C# Coding Standards', 'href':'http://dotnet.github.io/docfx/guideline/csharp_coding_standards.html'}]")
+            });
+
+            var httpClient = new HttpClient(fakeResponseHandler);
+            var dbc= new DocumentBuildContext("");
+
+            var result = dbc.QueryByHttpRequestAsync(httpClient, "http://example.org/test1", "xx").Result;
+            Assert.Equal(0, result.Count);
+            result = dbc.QueryByHttpRequestAsync(httpClient, "http://example.org/test2", "xx").Result;
+            Assert.Equal("csharp_coding_standards", result[0].Uid);
         }
 
         [Fact]

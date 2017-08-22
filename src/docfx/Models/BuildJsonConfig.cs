@@ -28,11 +28,15 @@ namespace Microsoft.DocAsCode
         [JsonProperty("overwrite")]
         public FileMapping Overwrite { get; set; }
 
+        [Obsolete]
         [JsonProperty("externalReference")]
         public FileMapping ExternalReference { get; set; }
 
         [JsonProperty("xref")]
         public ListWithStringFallback XRefMaps { get; set; }
+
+        [JsonProperty("xrefService")]
+        public ListWithStringFallback XRefServiceUrls { get; set; }
 
         [JsonProperty("dest")]
         public string Destination { get; set; }
@@ -135,5 +139,8 @@ namespace Microsoft.DocAsCode
 
         [JsonProperty("keepFileLink")]
         public bool KeepFileLink { get; set; }
+
+        [JsonProperty("cleanupCacheHistory")]
+        public bool CleanupCacheHistory { get; set; }
     }
 }

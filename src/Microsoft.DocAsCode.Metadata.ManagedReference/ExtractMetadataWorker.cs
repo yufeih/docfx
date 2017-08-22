@@ -23,7 +23,6 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
     public sealed class ExtractMetadataWorker : IDisposable
     {
         private const string XmlCommentFileExtension = "xml";
-        private const string IndexFileName = ".manifest";
         private readonly Dictionary<FileType, List<FileInformation>> _files;
         private readonly bool _rebuild;
         private readonly bool _shouldSkipMarkup;
@@ -35,6 +34,8 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
 
         //Lacks UT for shared workspace
         private readonly Lazy<MSBuildWorkspace> _workspace;
+
+        internal const string IndexFileName = ".manifest";
 
         public ExtractMetadataWorker(ExtractMetadataInputModel input)
         {
@@ -83,7 +84,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
         {
             if (_files == null || _files.Count == 0)
             {
-                Logger.Log(LogLevel.Warning, "No source project or file to process, exiting...");
+                Logger.Log(LogLevel.Warning, "No project detected for extracting metadata.");
                 return;
             }
 
@@ -158,8 +159,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                                       select m).ToList();
                     if (extensions.Count > 0)
                     {
-                        IEnumerable<IMethodSymbol> ext;
-                        if (methods.TryGetValue(compilation, out ext))
+                        if (methods.TryGetValue(compilation, out IEnumerable<IMethodSymbol> ext))
                         {
                             methods[compilation] = ext.Union(extensions);
                         }
@@ -392,12 +392,12 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                                         where File.Exists(xmlFile)
                                         select xmlFile).ToList();
 
-                    var referencedAssemblyList = CompilationUtility.GetAssemblyFromAssemblyComplation(assemblyCompilation);
-                    var assemblyExtension = GetAllExtensionMethodsFromAssembly(assemblyCompilation, referencedAssemblyList);
+                    var referencedAssemblyList = CompilationUtility.GetAssemblyFromAssemblyComplation(assemblyCompilation).ToList();
+                    var assemblyExtension = GetAllExtensionMethodsFromAssembly(assemblyCompilation, referencedAssemblyList.Select(s => s.Item2));
 
                     foreach (var assembly in referencedAssemblyList)
                     {
-                        var mta = await GetAssemblyMetadataFromCacheAsync(assemblyFiles, assemblyCompilation, assembly, outputFolder, forceRebuild, _filterConfigFile, assemblyExtension);
+                        var mta = await GetAssemblyMetadataFromCacheAsync(new string[] { assembly.Item1.Display }, assemblyCompilation, assembly.Item2, outputFolder, forceRebuild, _filterConfigFile, assemblyExtension);
                         if (mta != null)
                         {
                             MergeCommentsHelper.MergeComments(mta.Item1, commentFiles);
@@ -690,7 +690,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             // 3. generate manifest file
             string indexFilePath = Path.Combine(folder, IndexFileName);
 
-            JsonUtility.Serialize(indexFilePath, indexer);
+            JsonUtility.Serialize(indexFilePath, indexer, Newtonsoft.Json.Formatting.Indented);
             yield return IndexFileName;
         }
 
@@ -704,7 +704,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             }
             try
             {
-                index = YamlUtility.Deserialize<ApiReferenceViewModel>(indexFilePath);
+                index = JsonUtility.Deserialize<ApiReferenceViewModel>(indexFilePath);
             }
             catch (Exception e)
             {
@@ -758,8 +758,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
             {
                 TreeIterator.Preorder(memberModel, null, s => s.Items, (member, parent) =>
                 {
-                    string path;
-                    if (indexer.TryGetValue(member.Name, out path))
+                    if (indexer.TryGetValue(member.Name, out string path))
                     {
                         Logger.LogWarning($"{member.Name} already exists in {path}, the duplicate one {outputPath} will be ignored.");
                     }
@@ -790,8 +789,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                     {
                         if (ns.Type == MemberType.Namespace)
                         {
-                            MetadataItem nsOther;
-                            if (namespaceMapping.TryGetValue(ns.Name, out nsOther))
+                            if (namespaceMapping.TryGetValue(ns.Name, out MetadataItem nsOther))
                             {
                                 if (ns.Items != null)
                                 {
@@ -826,8 +824,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
 
                         ns.Items?.ForEach(s =>
                         {
-                            MetadataItem existingMetadata;
-                            if (allMembers.TryGetValue(s.Name, out existingMetadata))
+                            if (allMembers.TryGetValue(s.Name, out MetadataItem existingMetadata))
                             {
                                 Logger.Log(LogLevel.Warning, $"Duplicate member {s.Name} is found from {existingMetadata.Source.Path} and {s.Source.Path}, use the one in {existingMetadata.Source.Path} and ignore the one from {s.Source.Path}");
                             }
@@ -838,8 +835,7 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
 
                             s.Items?.ForEach(s1 =>
                             {
-                                MetadataItem existingMetadata1;
-                                if (allMembers.TryGetValue(s1.Name, out existingMetadata1))
+                                if (allMembers.TryGetValue(s1.Name, out MetadataItem existingMetadata1))
                                 {
                                     Logger.Log(LogLevel.Warning, $"Duplicate member {s1.Name} is found from {existingMetadata1.Source.Path} and {s1.Source.Path}, use the one in {existingMetadata1.Source.Path} and ignore the one from {s1.Source.Path}");
                                 }
@@ -927,12 +923,20 @@ namespace Microsoft.DocAsCode.Metadata.ManagedReference
                 try
                 {
                     Logger.LogVerbose($"Loading project {s}", file: s);
-                    var project = _workspace.Value.OpenProjectAsync(s).Result;
-                    foreach (var p in _workspace.Value.CurrentSolution.Projects)
+                    var project = _workspace.Value.CurrentSolution.Projects.FirstOrDefault(
+                        p => FilePathComparer.OSPlatformSensitiveRelativePathComparer.Equals(p.FilePath, s));
+
+                    if (project != null)
                     {
-                        cache.TryAdd(p.FilePath.ToNormalizedFullPath(), p);
+                        return project;
                     }
-                    return project;
+
+                    return _workspace.Value.OpenProjectAsync(s).Result;
+                }
+                catch (AggregateException e)
+                {
+                    Logger.Log(LogLevel.Warning, $"Error opening project {path}: {e.GetBaseException()?.Message}. Ignored.");
+                    return null;
                 }
                 catch (Exception e)
                 {

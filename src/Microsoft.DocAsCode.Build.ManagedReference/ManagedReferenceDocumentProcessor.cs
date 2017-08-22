@@ -104,7 +104,9 @@ namespace Microsoft.DocAsCode.Build.ManagedReference
 
             return new FileModel(file, page, serializer: new BinaryFormatter())
             {
-                Uids = (from item in page.Items select new UidDefinition(item.Uid, localPathFromRoot)).ToImmutableArray(),
+                Uids = (from item in page.Items select item.Uid)
+                .Concat(from item in page.Items where item.Overload != null select item.Overload)
+                .Distinct().Select(s => new UidDefinition(s, localPathFromRoot)).ToImmutableArray(),
                 LocalPathFromRoot = localPathFromRoot
             };
         }
@@ -131,8 +133,6 @@ namespace Microsoft.DocAsCode.Build.ManagedReference
                         {
                             case YamlMime.ManagedReference:
                                 return ProcessingPriority.Normal;
-                            case null:
-                                return ProcessingPriority.BelowNormal;
                             default:
                                 return ProcessingPriority.NotSupported;
                         }

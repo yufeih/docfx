@@ -81,6 +81,8 @@ items:
   - System.Object.GetHashCode
   - System.Object.GetType
   - System.Object.MemberwiseClone
+  example:
+  - " \n [!code-csharp[TPLDataflow_DegreeOfParallelism#2](snippets/dataflowdegreeofparallelism.cs#2)]\n"
 - uid: System.Console.In
   id: In
   parent: System.Console
@@ -384,6 +386,7 @@ items:
   assemblies:
   - System.Console
   namespace: System
+  overload: System.Console.WriteLine*
   syntax:
     content: public static void WriteLine()
     content.vb: Public Shared Sub WriteLine
@@ -1452,3 +1455,8 @@ references:
     isExternal: true
   - name: ()
     fullName: ()
+- uid: System.Console.WriteLine*
+  commentId: Overload:System.Console.WriteLine
+  isExternal: false
+  name: WriteLine
+  nameWithType: System.Console.WriteLine

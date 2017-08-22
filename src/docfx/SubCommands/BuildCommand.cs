@@ -37,7 +37,7 @@ namespace Microsoft.DocAsCode.SubCommands
 
             SetDefaultConfigValue(Config);
 
-            _templateManager = new TemplateManager(assembly, "Template", Config.Templates, Config.Themes, Config.BaseDirectory);
+            _templateManager = new TemplateManager(assembly, Constants.EmbeddedTemplateFolderName, Config.Templates, Config.Themes, Config.BaseDirectory);
 
         }
 
@@ -50,7 +50,8 @@ namespace Microsoft.DocAsCode.SubCommands
             EnvironmentContext.SetBaseDirectory(Path.GetFullPath(string.IsNullOrEmpty(Config.BaseDirectory) ? Directory.GetCurrentDirectory() : Config.BaseDirectory));
             // TODO: remove BaseDirectory from Config, it may cause potential issue when abused
             var baseDirectory = EnvironmentContext.BaseDirectory;
-            var intermediateOutputFolder = Path.Combine(baseDirectory, "obj");
+            Config.IntermediateFolder = Config.IntermediateFolder ?? Path.Combine(baseDirectory, "obj", ".cache", "build");
+
             var outputFolder = Path.GetFullPath(Path.Combine(string.IsNullOrEmpty(Config.OutputFolder) ? baseDirectory : Config.OutputFolder, Config.Destination ?? string.Empty));
 
             BuildDocument(baseDirectory, outputFolder);
@@ -157,10 +158,6 @@ namespace Microsoft.DocAsCode.SubCommands
             if (options.Themes != null && options.Themes.Count > 0)
             {
                 config.Themes = new ListWithStringFallback(options.Themes);
-            }
-            if (!string.IsNullOrEmpty(options.OutputFolder))
-            {
-                config.Destination = Path.GetFullPath(Path.Combine(options.OutputFolder, config.Destination ?? string.Empty));
             }
             if (options.Content != null)
             {
@@ -288,7 +285,6 @@ namespace Microsoft.DocAsCode.SubCommands
             {
                 config.IntermediateFolder = options.IntermediateFolder;
             }
-            config.IntermediateFolder = config.IntermediateFolder ?? Path.Combine(config.BaseDirectory ?? optionsBaseDirectory, "obj", ".cache", "build");
             if (options.ChangesFile != null)
             {
                 config.ChangesFile = options.ChangesFile;
@@ -310,6 +306,7 @@ namespace Microsoft.DocAsCode.SubCommands
             config.LruSize = options.LruSize ?? config.LruSize;
 
             config.KeepFileLink |= options.KeepFileLink;
+            config.CleanupCacheHistory |= options.CleanupCacheHistory;
 
             config.FileMetadataFilePaths =
                 new ListWithStringFallback(config.FileMetadataFilePaths.Select(

@@ -25,6 +25,8 @@ $scriptHome = Split-Path $scriptPath
 $versionCsFolderPath = $scriptHome + "\TEMP\"
 $versionCsFilePath = $versionCsFolderPath + "version.cs"
 
+$global:LASTEXITCODE = $null
+
 Push-Location $scriptHome
 
 function NugetPack {
@@ -65,8 +67,7 @@ if (-not(ValidateCommand($nugetCommand))) {
     mkdir -Path "$env:LOCALAPPDATA\Nuget" -Force
     $ProgressPreference = 'SilentlyContinue'
     [Net.WebRequest]::DefaultWebProxy.Credentials = [Net.CredentialCache]::DefaultCredentials
-    Invoke-WebRequest 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $nugetCommand 
-    ProcessLastExitCode $lastexitcode "Download nuget.exe"
+    Invoke-WebRequest 'https://dist.nuget.org/win-x86-commandline/latest/nuget.exe' -OutFile $nugetCommand
 }
 
 if ($raw -eq $false) {
@@ -183,6 +184,10 @@ $packages = @{
     "MergeSourceInfo" =  @{
         "proj" = $null;
         "nuspecs" = @("src\nuspec\MergeSourceInfo\MergeSourceInfo.nuspec");
+    };
+    "TocConverter" = @{
+        "proj" = $null;
+        "nuspecs" = @("src\nuspec\TocConverter\TocConverter.nuspec");
     };
 }
 

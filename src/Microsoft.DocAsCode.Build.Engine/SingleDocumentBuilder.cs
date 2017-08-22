@@ -94,7 +94,8 @@ namespace Microsoft.DocAsCode.Build.Engine
                     parameters.VersionName,
                     parameters.ApplyTemplateSettings,
                     parameters.RootTocPath,
-                    parameters.VersionDir);
+                    parameters.VersionDir,
+                    parameters.XRefServiceUrls);
 
                 Logger.LogVerbose("Start building document...");
 
@@ -138,7 +139,7 @@ namespace Microsoft.DocAsCode.Build.Engine
                             SourceBasePath = StringExtension.ToNormalizedPath(EnvironmentContext.BaseDirectory),
                             IncrementalInfo = context.IncrementalBuildContext != null ? new List<IncrementalInfo> { context.IncrementalBuildContext.IncrementalInfo } : null,
                             VersionInfo = string.IsNullOrEmpty(context.VersionName) ?
-                            new Dictionary<string, VersionInfo>():
+                            new Dictionary<string, VersionInfo>() :
                             new Dictionary<string, VersionInfo>
                                 {
                                     {
@@ -297,15 +298,23 @@ namespace Microsoft.DocAsCode.Build.Engine
                      Href = context.UpdateHref(xref.Href, RelativePath.WorkingFolder)
                  }).ToList();
             xrefMap.Sort();
-            string xrefMapFileNameWithVersion = string.IsNullOrEmpty(parameters.VersionName) ?
-                XRefMapFileName :
-                parameters.VersionName + "." + XRefMapFileName;
+            string xrefMapFileNameWithVersion = GetXrefMapFileNameWithVersion(parameters.VersionName);
             YamlUtility.Serialize(
                 Path.GetFullPath(Environment.ExpandEnvironmentVariables(Path.Combine(parameters.OutputBaseDir, xrefMapFileNameWithVersion))),
                 xrefMap,
                 YamlMime.XRefMap);
             Logger.LogInfo("XRef map exported.");
             return xrefMapFileNameWithVersion;
+        }
+
+        private static string GetXrefMapFileNameWithVersion(string version)
+        {
+            if (string.IsNullOrEmpty(version))
+            {
+                return XRefMapFileName;
+            }
+
+            return Uri.EscapeDataString(version) + "." + XRefMapFileName;
         }
 
         private IMarkdownService CreateMarkdownService(DocumentBuildParameters parameters, ImmutableDictionary<string, string> tokens)

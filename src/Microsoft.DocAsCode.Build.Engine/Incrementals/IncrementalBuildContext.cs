@@ -98,8 +98,10 @@ namespace Microsoft.DocAsCode.Build.Engine.Incrementals
                 TocRestructionsFile = IncrementalUtility.CreateRandomFileName(baseDir),
             };
             cb.Versions.Add(cbv);
-            var context = new IncrementalBuildContext(baseDir, lastBaseDir, lastBuildStartTime, buildInfoIncrementalStatus, parameters, cbv, lbv);
-            context.IsTemplateUpdated = (cb.TemplateHash != lb?.TemplateHash);
+            var context = new IncrementalBuildContext(baseDir, lastBaseDir, lastBuildStartTime, buildInfoIncrementalStatus, parameters, cbv, lbv)
+            {
+                IsTemplateUpdated = (cb.TemplateHash != lb?.TemplateHash)
+            };
             context.InitDependency();
             context.InitFileAttributes();
             context.InitChanges();
@@ -163,8 +165,7 @@ namespace Microsoft.DocAsCode.Build.Engine.Incrementals
             {
                 throw new InvalidOperationException($"HostService: {name} doesn't record incremental info, cannot call the method to get model load info.");
             }
-            OSPlatformSensitiveDictionary<BuildPhase?> mi;
-            if (ModelLoadInfo.TryGetValue(name, out mi))
+            if (ModelLoadInfo.TryGetValue(name, out OSPlatformSensitiveDictionary<BuildPhase?> mi))
             {
                 return mi;
             }
@@ -333,8 +334,7 @@ namespace Microsoft.DocAsCode.Build.Engine.Incrementals
                     {
                         continue;
                     }
-                    FileAttributeItem item;
-                    if (!TryGetFileAttributeFromLast(key, out item))
+                    if (!TryGetFileAttributeFromLast(key, out FileAttributeItem item))
                     {
                         string md5;
                         using (var fs = File.OpenRead(f.FullPath))

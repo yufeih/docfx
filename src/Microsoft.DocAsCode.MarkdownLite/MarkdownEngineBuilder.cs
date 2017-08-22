@@ -3,6 +3,7 @@
 
 namespace Microsoft.DocAsCode.MarkdownLite
 {
+    using System;
     using System.Collections.Immutable;
 
     /// <summary>
@@ -40,7 +41,7 @@ namespace Microsoft.DocAsCode.MarkdownLite
         /// </summary>
         public IMarkdownTokenTreeValidator TokenTreeValidator { get; set; }
 
-        public IMarkdownTokenAggregator TokenAggregator { get; set; }
+        public ImmutableList<IMarkdownTokenAggregator> TokenAggregators { get; set; } = ImmutableList<IMarkdownTokenAggregator>.Empty;
 
         /// <summary>
         /// Create markdown paring context.
@@ -61,7 +62,7 @@ namespace Microsoft.DocAsCode.MarkdownLite
             return new MarkdownEngine(CreateParseContext(), Rewriter, renderer, Options)
             {
                 TokenTreeValidator = TokenTreeValidator,
-                TokenAggregator = TokenAggregator,
+                TokenAggregators = TokenAggregators,
             };
         }
     }

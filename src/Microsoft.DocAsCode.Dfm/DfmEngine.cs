@@ -16,7 +16,11 @@ namespace Microsoft.DocAsCode.Dfm
             : base(context, rewriter, renderer, options, new Dictionary<string, LinkObj>()) { }
 
         internal DfmEngine(DfmEngine engine)
-            : this(engine.Context, engine.Rewriter, engine.RendererImpl, engine.Options) { }
+            : this(engine.Context, engine.Rewriter, engine.RendererImpl, engine.Options)
+        {
+            TokenTreeValidator = engine.TokenTreeValidator;
+            TokenAggregators = engine.TokenAggregators;
+        }
 
         public override string Markup(string src, string path)
         {

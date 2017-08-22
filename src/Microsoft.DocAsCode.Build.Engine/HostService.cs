@@ -393,14 +393,23 @@ namespace Microsoft.DocAsCode.Build.Engine
                             throw new BuildCacheException($"Last build hasn't loaded model {pair.Key}");
                         }
 
-                        foreach (var item in lfn)
+                        if (FilePathComparerWithEnvironmentVariable.OSPlatformSensitiveRelativePathComparer.Equals(
+                            incrementalContext.BaseDir,
+                            incrementalContext.LastBaseDir))
                         {
-                            // use copy rather than move because if the build failed, the intermediate files of last successful build shouldn't be corrupted.
-                            string fileName = IncrementalUtility.GetRandomEntry(incrementalContext.BaseDir);
-                            File.Copy(
-                                Path.Combine(Environment.ExpandEnvironmentVariables(incrementalContext.LastBaseDir), item.FilePath),
-                                Path.Combine(Environment.ExpandEnvironmentVariables(incrementalContext.BaseDir), fileName));
-                            items.Add(new ModelManifestItem() { SourceFilePath = item.SourceFilePath, FilePath = fileName });
+                            items.AddRange(lfn);
+                        }
+                        else
+                        {
+                            foreach (var item in lfn)
+                            {
+                                // use copy rather than move because if the build failed, the intermediate files of last successful build shouldn't be corrupted.
+                                string fileName = IncrementalUtility.GetRandomEntry(incrementalContext.BaseDir);
+                                File.Copy(
+                                    Path.Combine(Environment.ExpandEnvironmentVariables(incrementalContext.LastBaseDir), item.FilePath),
+                                    Path.Combine(Environment.ExpandEnvironmentVariables(incrementalContext.BaseDir), fileName));
+                                items.Add(new ModelManifestItem() { SourceFilePath = item.SourceFilePath, FilePath = fileName });
+                            }
                         }
                     }
                     else
@@ -487,12 +496,12 @@ namespace Microsoft.DocAsCode.Build.Engine
                 m.FileOrBaseDirChanged += fileOrBaseDirChangedHandler;
                 m.UidsChanged += uidsChangedHandler;
                 m.ContentAccessed += contentAccessedHandler;
-                foreach (var uid in m.Uids)
+                foreach (var uid in m.Uids.Select(s => s.Name).Distinct())
                 {
-                    if (!_uidIndex.TryGetValue(uid.Name, out List<FileModel> list))
+                    if (!_uidIndex.TryGetValue(uid, out List<FileModel> list))
                     {
                         list = new List<FileModel>();
-                        _uidIndex.Add(uid.Name, list);
+                        _uidIndex.Add(uid, list);
                     }
                     list.Add(m);
                 }
