@@ -3,13 +3,13 @@
 
 namespace Microsoft.DocAsCode.Build.Engine
 {
-    public class TemplatePreprocessorResource
+    public class ResourceInfo
     {
+        public string Path { get; }
         public string Content { get; }
-        public string ResourceName { get; }
-        public TemplatePreprocessorResource(string resourceName, string content)
+        public ResourceInfo(string path, string content)
         {
-            ResourceName = resourceName;
+            Path = path;
             Content = content;
         }
     }

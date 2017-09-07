@@ -13,9 +13,11 @@ namespace Microsoft.DocAsCode.Dfm.Tests
     using Xunit;
 
     using Microsoft.DocAsCode.Common;
+    using Microsoft.DocAsCode.Build.Engine;
     using Microsoft.DocAsCode.Dfm;
     using Microsoft.DocAsCode.Dfm.MarkdownValidators;
     using Microsoft.DocAsCode.MarkdownLite;
+    using Microsoft.DocAsCode.Plugins;
     using Microsoft.DocAsCode.Tests.Common;
 
     public class DocfxFlavoredMarkdownTest
@@ -328,6 +330,68 @@ Inline [!include[ref3](ref3.md ""This is root"")]
             Assert.Equal(
                 new[] { "ref1.md", "ref2.md", "ref3.md", "root.md" },
                 dependency.OrderBy(x => x));
+        }
+
+        [Fact]
+        [Trait("Related", "DfmMarkdown")]
+        public void TestInInlineInclusionMarkupFromContent()
+        {
+            var reference = @"---
+uid: reference.md
+---
+## Inline inclusion do not parse header
+
+[link](testLink.md)";
+
+            var expected = @"## Inline inclusion do not parse header
+
+<a href=""testLink.md"" data-raw-source=""[link](testLink.md)"" sourceFile=""reference.md"" sourceStartLineNumber=""6"" sourceEndLineNumber=""6"">link</a>";
+
+            DfmServiceProvider provider = new DfmServiceProvider();
+            var service = provider.CreateMarkdownService(new MarkdownServiceParameters());
+
+            var parents = ImmutableStack.Create("reference.md");
+
+            var dfmservice = (DfmServiceProvider.DfmService) service;
+            var marked = dfmservice
+                .Builder
+                .CreateDfmEngine(dfmservice.Renderer)
+                .Markup(reference,
+                    ((MarkdownBlockContext) dfmservice.Builder.CreateParseContext())
+                    .GetInlineContext().SetFilePathStack(parents).SetIsInclude());
+
+            Assert.Equal(expected.Replace("\r\n", "\n"), marked);
+        }
+
+        [Fact]
+        [Trait("Related", "DfmMarkdown")]
+        public void TestInBlockInclusionMarkupFromContent()
+        {
+            var reference = @"---
+uid: reference.md
+---
+## Block inclusion should parse header
+
+[link](testLink.md)";
+
+            var expected = @"<h2 id=""block-inclusion-should-parse-header"" sourceFile=""reference.md"" sourceStartLineNumber=""4"" sourceEndLineNumber=""4"">Block inclusion should parse header</h2>
+<p sourceFile=""reference.md"" sourceStartLineNumber=""6"" sourceEndLineNumber=""6""><a href=""testLink.md"" data-raw-source=""[link](testLink.md)"" sourceFile=""reference.md"" sourceStartLineNumber=""6"" sourceEndLineNumber=""6"">link</a></p>
+";
+
+            DfmServiceProvider provider = new DfmServiceProvider();
+            var service = provider.CreateMarkdownService(new MarkdownServiceParameters());
+
+            var parents = ImmutableStack.Create("reference.md");
+
+            var dfmservice = (DfmServiceProvider.DfmService)service;
+            var marked = dfmservice
+                .Builder
+                .CreateDfmEngine(dfmservice.Renderer)
+                .Markup(reference,
+                    ((MarkdownBlockContext)dfmservice.Builder.CreateParseContext())
+                    .SetFilePathStack(parents).SetIsInclude());
+
+            Assert.Equal(expected.Replace("\r\n", "\n"), marked);
         }
 
         [Fact]
@@ -1417,6 +1481,124 @@ public static void Foo()
             Assert.Equal(expectedContent.Replace("\r\n", "\n"), marked);
         }
 
+        [Theory]
+        [Trait("Related", "DfmMarkdown")]
+        [InlineData(null, @"<pre><code class=""lang-csharp"">namespace ConsoleApplication1
+{
+    // &lt;namespace&gt;
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    // &lt;/namespace&gt;
+
+    // &lt;snippetprogram&gt;
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string s = &quot;\ntest&quot;;
+            int i = 100;
+        }
+    }
+    // &lt;/snippetprogram&gt;
+
+    #region Helper
+    internal static class Helper
+    {
+        #region Foo
+        public static void Foo()
+        {
+        }
+        #endregion Foo
+    }
+    #endregion
+}
+</code></pre>")]
+        [InlineData("", @"<pre><code class=""lang-csharp"">namespace ConsoleApplication1
+{
+    // &lt;namespace&gt;
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    // &lt;/namespace&gt;
+
+    // &lt;snippetprogram&gt;
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string s = &quot;\ntest&quot;;
+            int i = 100;
+        }
+    }
+    // &lt;/snippetprogram&gt;
+
+    #region Helper
+    internal static class Helper
+    {
+        #region Foo
+        public static void Foo()
+        {
+        }
+        #endregion Foo
+    }
+    #endregion
+}
+</code></pre>")]
+        [InlineData("?", "<!-- Length of queryStringAndFragment can not be 1 -->\n")]
+        [InlineData("?range=1-2,10,20-21,29-&dedent=0&highlight=1-2,7-", @"<pre><code class=""lang-csharp"" highlight-lines=""1-2,7-"">namespace ConsoleApplication1
+{
+    class Program
+    #region Helper
+    internal static class Helper
+    #endregion
+}
+</code></pre>")]
+        [InlineData("#namespace", @"<pre><code class=""lang-csharp"">using System;
+using System.Collections.Generic;
+using System.IO;
+</code></pre>")]
+        public void TestDfmFencesRenderFromCodeContent(string queryStringAndFragment, string expectedContent)
+        {
+            // arrange
+            var content = @"namespace ConsoleApplication1
+{
+    // <namespace>
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    // </namespace>
+
+    // <snippetprogram>
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            string s = ""\ntest"";
+            int i = 100;
+        }
+    }
+    // </snippetprogram>
+
+    #region Helper
+    internal static class Helper
+    {
+        #region Foo
+        public static void Foo()
+        {
+        }
+        #endregion Foo
+    }
+    #endregion
+}";
+
+            // act
+            var renderer = new DfmCodeRenderer();
+            var marked = renderer.RenderFencesFromCodeContent(content, "test.cs", queryStringAndFragment, null, "csharp");
+
+            Assert.Equal(expectedContent.Replace("\r\n", "\n"), marked);
+        }
+
         [Fact]
         public void CodeSnippetTagsShouldMatchCaseInsensitive()
         {
@@ -1487,7 +1669,7 @@ line4
             File.WriteAllText("Program.cs", content.Replace("\r\n", "\n"));
 
             // act
-            var listener = TestLoggerListener.CreateLoggerListenerWithPhaseEqualFilter("Extract Dfm Code");
+            var listener = TestLoggerListener.CreateLoggerListenerWithPhaseStartFilter("Extract Dfm Code");
             Logger.RegisterListener(listener);
             var marked = DocfxFlavoredMarked.Markup("[!code[tag1](Program.cs#Tag1)]", "Program.cs");
             Logger.UnregisterListener(listener);

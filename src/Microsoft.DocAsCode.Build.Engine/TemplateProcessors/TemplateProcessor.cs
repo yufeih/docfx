@@ -14,11 +14,10 @@ namespace Microsoft.DocAsCode.Build.Engine
 
     public class TemplateProcessor : IDisposable
     {
-        private readonly ResourceCollection _resourceProvider;
-
+        private readonly ResourceFileReader _resourceProvider;
         private readonly TemplateCollection _templateCollection;
-
-        public static readonly TemplateProcessor DefaultProcessor = new TemplateProcessor(new EmptyResourceCollection(), null, 1);
+        private readonly DocumentBuildContext _context;
+        private readonly int _maxParallelism;
 
         public IDictionary<string, string> Tokens { get; }
 
@@ -29,14 +28,16 @@ namespace Microsoft.DocAsCode.Build.Engine
         /// </summary>
         /// <param name="templateName"></param>
         /// <param name="resourceProvider"></param>
-        public TemplateProcessor(ResourceCollection resourceProvider, DocumentBuildContext context, int maxParallelism = 0)
+        public TemplateProcessor(ResourceFileReader resourceProvider, DocumentBuildContext context, int maxParallelism = 0)
         {
             if (maxParallelism <= 0)
             {
                 maxParallelism = Environment.ProcessorCount;
             }
 
+            _context = context;
             _resourceProvider = resourceProvider;
+            _maxParallelism = maxParallelism;
             _templateCollection = new TemplateCollection(resourceProvider, context, maxParallelism);
             Tokens = LoadTokenJson(resourceProvider) ?? new Dictionary<string, string>();
         }
@@ -61,7 +62,7 @@ namespace Microsoft.DocAsCode.Build.Engine
             return true;
         }
 
-        internal List<ManifestItem> Process(List<InternalManifestItem> manifest, DocumentBuildContext context, ApplyTemplateSettings settings, IDictionary<string, object> globals = null)
+        internal List<ManifestItem> Process(List<InternalManifestItem> manifest, ApplyTemplateSettings settings, IDictionary<string, object> globals = null)
         {
             using (new LoggerPhaseScope("Apply Templates", LogLevel.Verbose))
             {
@@ -69,15 +70,16 @@ namespace Microsoft.DocAsCode.Build.Engine
                 {
                     globals = Tokens.ToDictionary(pair => pair.Key, pair => (object)pair.Value);
                 }
+
                 if (settings == null)
                 {
-                    settings = context.ApplyTemplateSettings;
+                    settings = _context?.ApplyTemplateSettings;
                 }
 
                 Logger.LogInfo($"Applying templates to {manifest.Count} model(s)...");
                 var documentTypes = new HashSet<string>(manifest.Select(s => s.DocumentType));
                 ProcessDependencies(documentTypes, settings);
-                var templateManifest = ProcessCore(manifest, context, settings, globals);
+                var templateManifest = ProcessCore(manifest, settings, globals);
                 return templateManifest;
             }
         }
@@ -139,10 +141,10 @@ namespace Microsoft.DocAsCode.Build.Engine
             }
         }
 
-        private List<ManifestItem> ProcessCore(List<InternalManifestItem> items, DocumentBuildContext context, ApplyTemplateSettings settings, IDictionary<string, object> globals)
+        private List<ManifestItem> ProcessCore(List<InternalManifestItem> items, ApplyTemplateSettings settings, IDictionary<string, object> globals)
         {
             var manifest = new ConcurrentBag<ManifestItem>();
-            var transformer = new TemplateModelTransformer(context, _templateCollection, settings, globals);
+            var transformer = new TemplateModelTransformer(_context, _templateCollection, settings, globals);
             items.RunAll(
                 item =>
                 {
@@ -155,12 +157,12 @@ namespace Microsoft.DocAsCode.Build.Engine
                         }
                     }
                 },
-                context.MaxParallelism);
+                _maxParallelism);
             return manifest.ToList();
 
         }
 
-        private static IDictionary<string, string> LoadTokenJson(ResourceCollection resource)
+        private static IDictionary<string, string> LoadTokenJson(ResourceFileReader resource)
         {
             var tokenJson = resource.GetResource("token.json");
             if (string.IsNullOrEmpty(tokenJson))

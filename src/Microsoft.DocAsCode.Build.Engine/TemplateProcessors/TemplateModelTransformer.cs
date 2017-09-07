@@ -23,6 +23,7 @@ namespace Microsoft.DocAsCode.Build.Engine
         private readonly DocumentBuildContext _context;
         private readonly ApplyTemplateSettings _settings;
         private readonly TemplateCollection _templateCollection;
+        private readonly RendererLoader _rendererLoader;
         private readonly IDictionary<string, object> _globalVariables;
 
         public TemplateModelTransformer(DocumentBuildContext context, TemplateCollection templateCollection, ApplyTemplateSettings settings, IDictionary<string, object> globals)
@@ -31,6 +32,7 @@ namespace Microsoft.DocAsCode.Build.Engine
             _templateCollection = templateCollection;
             _settings = settings;
             _globalVariables = globals;
+            _rendererLoader = new RendererLoader(templateCollection.Reader, templateCollection.MaxParallelism);
         }
 
         /// <summary>
@@ -84,7 +86,7 @@ namespace Microsoft.DocAsCode.Build.Engine
             // Must convert to JObject first as we leverage JsonProperty as the property name for the model
             foreach (var template in templateBundle.Templates)
             {
-                if (!template.ContainsTemplateRenderer)
+                if (template.Renderer == null)
                 {
                     continue;
                 }
@@ -377,7 +379,7 @@ namespace Microsoft.DocAsCode.Build.Engine
             node.ParentNode.ReplaceChild(convertedNode, node);
         }
 
-        private static bool UpdateXref(HtmlNode node, IDocumentBuildContext context, string language, out XRefDetails xref)
+        private bool UpdateXref(HtmlNode node, IDocumentBuildContext context, string language, out XRefDetails xref)
         {
             xref = XRefDetails.From(node);
             XRefSpec xrefSpec = null;
@@ -389,7 +391,8 @@ namespace Microsoft.DocAsCode.Build.Engine
                 xref.ApplyXrefSpec(xrefSpec);
             }
 
-            var convertedNode = xref.ConvertToHtmlNode(language);
+            var renderer = xref.TemplatePath == null ? null : _rendererLoader.Load(xref.TemplatePath);
+            var convertedNode = xref.ConvertToHtmlNode(language, renderer);
             node.ParentNode.ReplaceChild(convertedNode, node);
             if (xrefSpec == null && xref.ThrowIfNotResolved == true)
             {

@@ -105,7 +105,8 @@ namespace Microsoft.DocAsCode.Build.Engine
                 PhaseProcessor phaseProcessor = null;
                 try
                 {
-                    using (var templateProcessor = parameters.TemplateManager?.GetTemplateProcessor(context, parameters.MaxParallelism) ?? TemplateProcessor.DefaultProcessor)
+                    using (var templateProcessor = parameters.TemplateManager?.GetTemplateProcessor(context, parameters.MaxParallelism)
+                        ?? new TemplateProcessor(new EmptyResourceReader(), context, 16))
                     {
                         using (new LoggerPhaseScope("Prepare", LogLevel.Verbose))
                         {
@@ -132,7 +133,7 @@ namespace Microsoft.DocAsCode.Build.Engine
 
                         BuildCore(phaseProcessor, hostServices, context);
 
-                        return new Manifest(context.ManifestItems)
+                        var manifest = new Manifest(context.ManifestItems)
                         {
                             Homepages = GetHomepages(context),
                             XRefMap = ExportXRefMap(parameters, context),
@@ -148,6 +149,14 @@ namespace Microsoft.DocAsCode.Build.Engine
                                     }
                                 }
                         };
+                        manifest.Groups = new List<ManifestGroupInfo>
+                        {
+                            new ManifestGroupInfo(parameters.GroupInfo)
+                            {
+                                XRefmap = (string)manifest.XRefMap
+                            }
+                        };
+                        return manifest;
                     }
                 }
                 finally
@@ -298,7 +307,7 @@ namespace Microsoft.DocAsCode.Build.Engine
                      Href = context.UpdateHref(xref.Href, RelativePath.WorkingFolder)
                  }).ToList();
             xrefMap.Sort();
-            string xrefMapFileNameWithVersion = GetXrefMapFileNameWithVersion(parameters.VersionName);
+            string xrefMapFileNameWithVersion = GetXrefMapFileNameWithGroup(parameters);
             YamlUtility.Serialize(
                 Path.GetFullPath(Environment.ExpandEnvironmentVariables(Path.Combine(parameters.OutputBaseDir, xrefMapFileNameWithVersion))),
                 xrefMap,
@@ -307,14 +316,17 @@ namespace Microsoft.DocAsCode.Build.Engine
             return xrefMapFileNameWithVersion;
         }
 
-        private static string GetXrefMapFileNameWithVersion(string version)
+        private static string GetXrefMapFileNameWithGroup(DocumentBuildParameters parameters)
         {
-            if (string.IsNullOrEmpty(version))
+            if (!string.IsNullOrEmpty(parameters.GroupInfo?.Name))
             {
-                return XRefMapFileName;
+                return parameters.GroupInfo.Name + "." + XRefMapFileName;
             }
-
-            return Uri.EscapeDataString(version) + "." + XRefMapFileName;
+            if (!string.IsNullOrEmpty(parameters.VersionName))
+            {
+                return Uri.EscapeDataString(parameters.VersionName) + "." + XRefMapFileName;
+            }
+            return XRefMapFileName;
         }
 
         private IMarkdownService CreateMarkdownService(DocumentBuildParameters parameters, ImmutableDictionary<string, string> tokens)

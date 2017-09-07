@@ -5,10 +5,16 @@ namespace Microsoft.DocAsCode.Build.Engine
 {
     using System.Collections.Generic;
 
-    internal interface ITemplateRenderer
+    public interface ITemplateRenderer
     {
         string Render(object model);
+
         IEnumerable<string> Dependencies { get; }
+
         string Raw { get; }
+
+        string Path { get; }
+
+        string Name { get; }
     }
 }

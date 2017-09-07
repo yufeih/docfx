@@ -5,7 +5,6 @@ namespace Microsoft.DocAsCode.Build.Engine
 {
     using System;
     using System.Collections.Generic;
-    using System.Linq;
 
     using Jint;
     using Jint.Native;
@@ -15,6 +14,12 @@ namespace Microsoft.DocAsCode.Build.Engine
 
     public class TemplateJintPreprocessor : ITemplatePreprocessor
     {
+        public const string Extension = ".js";
+
+        // If template file does not exists, while a js script ends with .tmpl.js exists
+        // we consider .tmpl.js file as a standalone preprocess file
+        public const string StandaloneExtension = ".tmpl.js";
+
         /// <summary>
         /// Support
         ///     console.log
@@ -67,11 +72,11 @@ namespace Microsoft.DocAsCode.Build.Engine
 
         private readonly Engine _engine;
 
-        public Func<object, object> TransformModelFunc { get; private set; }
+        private Func<object, object> _transformFunc;
 
-        public Func<object, object> GetOptionsFunc { get; private set; }
+        private Func<object, object> _getOptionsFunc;
 
-        public TemplateJintPreprocessor(ResourceCollection resourceCollection, TemplatePreprocessorResource scriptResource, DocumentBuildContext context)
+        public TemplateJintPreprocessor(IResourceFileReader resourceCollection, ResourceInfo scriptResource, DocumentBuildContext context, string name = null)
         {
             if (!string.IsNullOrWhiteSpace(scriptResource.Content))
             {
@@ -81,11 +86,44 @@ namespace Microsoft.DocAsCode.Build.Engine
             {
                 _engine = null;
             }
+
+            ContainsGetOptions = _getOptionsFunc != null;
+            ContainsModelTransformation = _transformFunc != null;
+            Path = scriptResource.Path;
+            Name = name ?? System.IO.Path.GetFileNameWithoutExtension(Path);
         }
 
-        private Engine SetupEngine(ResourceCollection resourceCollection, TemplatePreprocessorResource scriptResource, DocumentBuildContext context)
+        public bool ContainsGetOptions { get; }
+
+        public bool ContainsModelTransformation { get; }
+
+        public string Path { get; }
+
+        public string Name { get; }
+
+        public object GetOptions(object model)
         {
-            var rootPath = (RelativePath)scriptResource.ResourceName;
+            if (_getOptionsFunc != null)
+            {
+                return _getOptionsFunc(model);
+            }
+
+            return null;
+        }
+
+        public object TransformModel(object model)
+        {
+            if (_transformFunc != null)
+            {
+                return _transformFunc(model);
+            }
+
+            return model;
+        }
+
+        private Engine SetupEngine(IResourceFileReader resourceCollection, ResourceInfo scriptResource, DocumentBuildContext context)
+        {
+            var rootPath = (RelativePath)scriptResource.Path;
             var engineCache = new Dictionary<string, Engine>();
 
             var utility = new TemplateUtility(context);
@@ -132,8 +170,8 @@ namespace Microsoft.DocAsCode.Build.Engine
             if (value.IsObject())
             {
                 var exports = value.AsObject();
-                GetOptionsFunc = GetFunc(GetOptionsFuncVariableName, exports);
-                TransformModelFunc = GetFunc(TransformFuncVariableName, exports);
+                _getOptionsFunc = GetFunc(GetOptionsFuncVariableName, exports);
+                _transformFunc = GetFunc(TransformFuncVariableName, exports);
             }
             else
             {

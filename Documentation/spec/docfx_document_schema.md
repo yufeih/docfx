@@ -55,6 +55,7 @@ This is the root document object for *THIS schema*.
 | description     | string  | A short description of current schema.
 | type            | string | `*`The type of the root document model MUST be `object`.
 | properties      | [Property Definitions Object](#property-definitions-object) | An object to hold the schema of all the properties.
+| metadata        | string | In `json-pointer` format as defined in http://json-schema.org/latest/json-schema-validation.html#rfc.section.8.3.9. The format for JSON pointer is defined by https://tools.ietf.org/html/rfc6901, referencing to the metadata object. Metadata object is the object to define the metadata for current document, and can be also set through `globalMetadata` or `fileMetadata` in DocFX. The default value for metadata is empty which stands for the root object.
 
 ##### Patterned Field
 | Field Name | Type | Description
@@ -87,6 +88,7 @@ An object to describe the schema of the value of the property.
 | contentType  | string | Defines the content type of the property. Refer to [contentType](#63-contenttype) for detailed explanation.
 | tags       | array  | Defines the tags of the property. Refer to [tags](#64-tags) for detailed explanation.
 | mergeType      | string | Defines how to merge the property. Omitting this keyword has the same behavior as `merge`. Refer to [mergeType](#65-mergetype) for detailed explanation.
+| xrefProperties  | array | Defines the properties of current object when it is cross referenced by others. Each item is the name of the property in the instance.
 
 ##### Patterned Field
 | Field Name | Type | Description
