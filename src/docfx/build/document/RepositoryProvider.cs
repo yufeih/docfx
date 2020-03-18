@@ -15,9 +15,7 @@ namespace Microsoft.Docs.Build
         private readonly Config? _config;
         private readonly LocalizationProvider? _localizationProvider;
         private readonly ConcurrentDictionary<string, Repository?> _repositores = new ConcurrentDictionary<string, Repository?>(PathUtility.PathComparer);
-
-        private readonly ConcurrentDictionary<PathString, (string docset, Repository? repository)> _dependencyRepositories
-                   = new ConcurrentDictionary<PathString, (string docset, Repository? repository)>();
+        private readonly ConcurrentDictionary<PathString, Repository?> _dependencyRepositories = new ConcurrentDictionary<PathString, Repository?>();
 
         public Repository? DefaultRepository { get; }
 
@@ -42,7 +40,14 @@ namespace Microsoft.Docs.Build
 
         public Repository? GetRepository(FileOrigin origin, PathString? dependencyName = null)
         {
-            return GetRepositoryWithDocsetEntry(origin, dependencyName).repository;
+            return origin switch
+            {
+                FileOrigin.Default => DefaultRepository,
+                FileOrigin.Fallback when _localizationProvider != null => _localizationProvider.FallbackRepository,
+                FileOrigin.Dependency when _config != null && _packageResolver != null && dependencyName != null
+                    => _dependencyRepositories.GetOrAdd(dependencyName.Value, key => GetDependencyRepository(key, _config, _packageResolver)),
+                _ => throw new InvalidOperationException(),
+            };
         }
 
         public (Repository? repository, PathString? pathToRepository) GetRepository(FilePath path)
@@ -51,22 +56,8 @@ namespace Microsoft.Docs.Build
             {
                 FileOrigin.Default => GetRepository(Path.Combine(_docsetPath, path.Path)),
                 FileOrigin.Fallback when _localizationProvider != null && _docsetPathToDefaultRepository != null
-                    => (_localizationProvider.GetFallbackRepositoryWithDocsetEntry().fallbackRepository,
-                        _docsetPathToDefaultRepository.Value.Concat(path.Path)),
-                FileOrigin.Dependency => (GetRepositoryWithDocsetEntry(path.Origin, path.DependencyName).repository, path.GetPathToOrigin()),
-                _ => throw new InvalidOperationException(),
-            };
-        }
-
-        public (string docsetPath, Repository? repository) GetRepositoryWithDocsetEntry(FileOrigin origin, PathString? dependencyName = null)
-        {
-            return origin switch
-            {
-                FileOrigin.Default => (_docsetPath, DefaultRepository),
-                FileOrigin.Fallback when _localizationProvider != null
-                    => _localizationProvider.GetFallbackRepositoryWithDocsetEntry(),
-                FileOrigin.Dependency when _config != null && _packageResolver != null && dependencyName != null
-                    => _dependencyRepositories.GetOrAdd(dependencyName.Value, key => GetDependencyRepository(key, _config, _packageResolver)),
+                    => (_localizationProvider.FallbackRepository, _docsetPathToDefaultRepository.Value.Concat(path.Path)),
+                FileOrigin.Dependency => (GetRepository(path.Origin, path.DependencyName), path.GetPathToOrigin()),
                 _ => throw new InvalidOperationException(),
             };
         }
@@ -104,18 +95,12 @@ namespace Microsoft.Docs.Build
             return Repository.Create(repoPath);
         }
 
-        private (string docset, Repository? repository) GetDependencyRepository(PathString dependencyName, Config config, PackageResolver packageResolver)
+        private Repository? GetDependencyRepository(PathString dependencyName, Config config, PackageResolver packageResolver)
         {
             var dependency = config.Dependencies[dependencyName];
             var dependencyPath = packageResolver.ResolvePackage(dependency, dependency.PackageFetchOptions);
 
-            if (dependency.Type != PackageType.Git)
-            {
-                // point to a folder
-                return (dependencyPath, null);
-            }
-
-            return (dependencyPath, Repository.Create(dependencyPath, dependency.Branch, dependency.Url));
+            return dependency.Type != PackageType.Git ? null : Repository.Create(dependencyPath, dependency.Branch, dependency.Url);
         }
     }
 }

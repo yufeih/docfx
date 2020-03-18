@@ -66,7 +66,7 @@ namespace Microsoft.Docs.Build
 
         public TableOfContentsMap TocMap => _tocMap.Value;
 
-        public Context(string outputPath, ErrorLog errorLog, CommandLineOptions options, Config config, Docset docset, Docset? fallbackDocset, Input input, RepositoryProvider repositoryProvider, LocalizationProvider localizationProvider, PackageResolver packageResolver)
+        public Context(string outputPath, ErrorLog errorLog, CommandLineOptions options, Config config, Input input, RepositoryProvider repositoryProvider, LocalizationProvider localizationProvider, PackageResolver packageResolver)
         {
             var credentialProvider = config.GetCredentialProvider();
 
@@ -83,8 +83,8 @@ namespace Microsoft.Docs.Build
             Output = new Output(outputPath, input, Config.DryRun);
             TemplateEngine = new TemplateEngine(docset.DocsetPath, config, localizationProvider.Locale, PackageResolver);
             MicrosoftGraphAccessor = new MicrosoftGraphAccessor(Config);
-            BuildScope = new BuildScope(Config, Input, fallbackDocset);
-            DocumentProvider = new DocumentProvider(config, localizationProvider, docset, fallbackDocset, BuildScope, input, repositoryProvider, TemplateEngine);
+            BuildScope = new BuildScope(Config, Input, LocalizationProvider);
+            DocumentProvider = new DocumentProvider(config, localizationProvider, BuildScope, input, repositoryProvider, TemplateEngine);
             MetadataProvider = new MetadataProvider(Config, Input, MicrosoftGraphAccessor, FileResolver, DocumentProvider);
             MonikerProvider = new MonikerProvider(Config, BuildScope, MetadataProvider, FileResolver);
             RedirectionProvider = new RedirectionProvider(docset.DocsetPath, Config.HostName, ErrorLog, BuildScope, repositoryProvider, DocumentProvider, MonikerProvider);
@@ -92,7 +92,7 @@ namespace Microsoft.Docs.Build
             GitCommitProvider = new GitCommitProvider(repositoryProvider);
             PublishModelBuilder = new PublishModelBuilder(outputPath, Config, Output, ErrorLog);
             BookmarkValidator = new BookmarkValidator(errorLog);
-            ContributionProvider = new ContributionProvider(config, localizationProvider, Input, fallbackDocset, GitHubAccessor, GitCommitProvider);
+            ContributionProvider = new ContributionProvider(config, localizationProvider, Input, GitHubAccessor, GitCommitProvider);
             FileLinkMapBuilder = new FileLinkMapBuilder(errorLog, MonikerProvider, PublishModelBuilder);
             XrefResolver = new XrefResolver(this, config, FileResolver, repositoryProvider.DefaultRepository, DependencyMapBuilder, FileLinkMapBuilder);
 

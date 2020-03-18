@@ -149,12 +149,12 @@ namespace Microsoft.Docs.Build
                     return ListFilesRecursive(_docsetPath);
 
                 case FileOrigin.Fallback:
-                    var (fallbackEntry, _) = _repositoryProvider.GetRepositoryWithDocsetEntry(origin);
+                    var (fallbackEntry, _) = _repositoryProvider.GetRepository(origin);
 
                     return ListFilesRecursive(fallbackEntry);
 
                 case FileOrigin.Dependency:
-                    var (dependencyEntry, _) = _repositoryProvider.GetRepositoryWithDocsetEntry(origin, dependencyName);
+                    var (dependencyEntry, _) = _repositoryProvider.GetRepository(origin, dependencyName);
 
                     return ListFilesRecursive(dependencyEntry);
 
@@ -189,12 +189,12 @@ namespace Microsoft.Docs.Build
                     return (_docsetPath, file.Path, file.Commit);
 
                 case FileOrigin.Dependency:
-                    var (dependencyEntry, dependencyRepository) = _repositoryProvider.GetRepositoryWithDocsetEntry(file.Origin, file.DependencyName);
-                    return (dependencyEntry, file.GetPathToOrigin(), file.Commit ?? dependencyRepository?.Commit);
+                    var (dependencyEntry, _) = _repositoryProvider.GetRepository(file.Origin, file.DependencyName);
+                    return (dependencyEntry, file.GetPathToOrigin(), file.Commit);
 
                 case FileOrigin.Fallback:
                 case FileOrigin.Template:
-                    var (docsetPath, _) = _repositoryProvider.GetRepositoryWithDocsetEntry(file.Origin);
+                    var (docsetPath, _) = _repositoryProvider.GetRepository(file.Origin);
                     return (docsetPath, file.Path, file.Commit);
 
                 default:

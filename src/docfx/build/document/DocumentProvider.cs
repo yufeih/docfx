@@ -12,8 +12,6 @@ namespace Microsoft.Docs.Build
     internal class DocumentProvider
     {
         private readonly Config _config;
-        private readonly Docset _docset;
-        private readonly Docset? _fallbackDocset;
         private readonly Input _input;
         private readonly BuildScope _buildScope;
         private readonly LocalizationProvider _localization;
@@ -23,19 +21,15 @@ namespace Microsoft.Docs.Build
         private readonly (PathString, DocumentIdConfig)[] _documentIdRules;
         private readonly (PathString src, PathString dest)[] _routes;
         private readonly HashSet<string> _configReferences;
-        private readonly IReadOnlyDictionary<string, Docset> _dependencyDocsets;
 
         private readonly ConcurrentDictionary<FilePath, Document> _documents = new ConcurrentDictionary<FilePath, Document>();
 
         public DocumentProvider(
-            Config config, LocalizationProvider localization, Docset docset, Docset? fallbackDocset, BuildScope buildScope, Input input, RepositoryProvider repositoryProvider, TemplateEngine templateEngine)
+            Config config, LocalizationProvider localization, BuildScope buildScope, Input input, RepositoryProvider repositoryProvider, TemplateEngine templateEngine)
         {
             _config = config;
-            _docset = docset;
             _localization = localization;
-            _fallbackDocset = fallbackDocset;
             _buildScope = buildScope;
-            _dependencyDocsets = LoadDependencies(repositoryProvider);
             _input = input;
             _templateEngine = templateEngine;
 
@@ -145,37 +139,6 @@ namespace Microsoft.Docs.Build
 
         private Document GetDocumentCore(FilePath path)
         {
-            switch (path.Origin)
-            {
-                case FileOrigin.Fallback:
-                    return CreateDocument(_fallbackDocset ?? throw new InvalidOperationException(), path);
-
-                case FileOrigin.Dependency:
-                    return CreateDocument(_dependencyDocsets[path.DependencyName], path);
-
-                default:
-                    return CreateDocument(_docset, path);
-            }
-        }
-
-        private Dictionary<string, Docset> LoadDependencies(RepositoryProvider repositoryProvider)
-        {
-            var result = new Dictionary<string, Docset>(_config.Dependencies.Count, PathUtility.PathComparer);
-
-            foreach (var (name, dependency) in _config.Dependencies)
-            {
-                var (entry, repository) = repositoryProvider.GetRepositoryWithDocsetEntry(FileOrigin.Dependency, name);
-                if (!string.IsNullOrEmpty(entry))
-                {
-                    result.TryAdd(name, new Docset(entry));
-                }
-            }
-
-            return result;
-        }
-
-        private Document CreateDocument(Docset docset, FilePath path)
-        {
             var contentType = path.Origin == FileOrigin.Redirection ? ContentType.Redirection : GetContentType(path.Path);
 
             var mime = contentType == ContentType.Page ? ReadMimeFromFile(_input, path) : default;
@@ -191,7 +154,7 @@ namespace Microsoft.Docs.Build
             var siteUrl = PathToAbsoluteUrl(Path.Combine(_config.BasePath, sitePath), contentType, mime, _config.OutputJson, isPage);
             var canonicalUrl = GetCanonicalUrl(siteUrl, sitePath, isExperimental, contentType, mime, isPage);
 
-            return new Document(docset, path, sitePath, siteUrl, canonicalUrl, contentType, mime, isExperimental, isPage);
+            return new Document(path, sitePath, siteUrl, canonicalUrl, contentType, mime, isExperimental, isPage);
         }
 
         private static string FilePathToSitePath(string path, ContentType contentType, string? mime, bool json, bool uglifyUrl, bool isPage)
