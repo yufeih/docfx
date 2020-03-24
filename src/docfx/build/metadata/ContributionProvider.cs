@@ -13,23 +13,21 @@ namespace Microsoft.Docs.Build
     {
         private readonly Input _input;
         private readonly Config _config;
-        private readonly Docset? _fallbackDocset;
         private readonly GitHubAccessor _githubAccessor;
-        private readonly LocalizationProvider _localization;
+        private readonly BuildOptions _buildOptions;
 
         private readonly ConcurrentDictionary<string, Lazy<CommitBuildTimeProvider>> _commitBuildTimeProviders = new ConcurrentDictionary<string, Lazy<CommitBuildTimeProvider>>(PathUtility.PathComparer);
 
         private readonly RepositoryProvider _repositoryProvider;
 
         public ContributionProvider(
-            Config config, LocalizationProvider localization, Input input, Docset? fallbackDocset, GitHubAccessor githubAccessor, RepositoryProvider repositoryProvider)
+            Config config, BuildOptions buildOptions, Input input, GitHubAccessor githubAccessor, RepositoryProvider repositoryProvider)
         {
             _input = input;
             _config = config;
-            _localization = localization;
+            _buildOptions = buildOptions;
             _githubAccessor = githubAccessor;
             _repositoryProvider = repositoryProvider;
-            _fallbackDocset = fallbackDocset;
         }
 
         public (List<Error> errors, ContributionInfo?) GetContributionInfo(FilePath file, SourceInfo<string> authorName)
@@ -46,7 +44,7 @@ namespace Microsoft.Docs.Build
             var contributionInfo = new ContributionInfo
             {
                 UpdateAt = updatedDateTime.ToString(
-                    _localization.Locale == "en-us" ? "M/d/yyyy" : _localization.Culture.DateTimeFormat.ShortDatePattern),
+                    _buildOptions.Locale == "en-us" ? "M/d/yyyy" : _buildOptions.Culture.DateTimeFormat.ShortDatePattern),
                 UpdatedAtDateTime = updatedDateTime,
             };
 
@@ -142,7 +140,7 @@ namespace Microsoft.Docs.Build
 
             var contentGitCommitUrl = contentCommitUrlTemplate?.Replace("{repo}", repo.Remote).Replace("{commit}", commit);
             var originalContentGitUrl = contentBranchUrlTemplate?.Replace("{repo}", repo.Remote).Replace("{branch}", repo.Branch);
-            var contentGitUrl = isWhitelisted ? GetContentGitUrl(repo.Remote, repo.Branch, pathToRepo, _localization.Locale) : originalContentGitUrl;
+            var contentGitUrl = isWhitelisted ? GetContentGitUrl(repo.Remote, repo.Branch, pathToRepo, _buildOptions.Locale) : originalContentGitUrl;
 
             return (
                 contentGitUrl,

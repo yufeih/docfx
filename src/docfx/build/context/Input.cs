@@ -21,17 +21,17 @@ namespace Microsoft.Docs.Build
         private readonly Config _config;
         private readonly PackageResolver _packageResolver;
         private readonly RepositoryProvider _repositoryProvider;
-        private readonly LocalizationProvider _localizationProvider;
+        private readonly BuildOptions _buildOptions;
         private readonly ConcurrentDictionary<FilePath, (List<Error>, JToken)> _jsonTokenCache = new ConcurrentDictionary<FilePath, (List<Error>, JToken)>();
         private readonly ConcurrentDictionary<FilePath, (List<Error>, JToken)> _yamlTokenCache = new ConcurrentDictionary<FilePath, (List<Error>, JToken)>();
         private readonly ConcurrentDictionary<PathString, byte[]?> _gitBlobCache = new ConcurrentDictionary<PathString, byte[]?>();
 
-        public Input(string docsetPath, Config config, PackageResolver packageResolver, RepositoryProvider repositoryProvider, LocalizationProvider localizationProvider)
+        public Input(string docsetPath, Config config, PackageResolver packageResolver, RepositoryProvider repositoryProvider, BuildOptions buildOptions)
         {
             _config = config;
             _packageResolver = packageResolver;
             _repositoryProvider = repositoryProvider;
-            _localizationProvider = localizationProvider;
+            _buildOptions = buildOptions;
             _docsetPath = new PathString(Path.GetFullPath(docsetPath));
         }
 
@@ -59,8 +59,8 @@ namespace Microsoft.Docs.Build
                     Debug.Assert(!pathToPackage.StartsWith('.'));
                     return new PathString(Path.Combine(packagePath, pathToPackage));
 
-                case FileOrigin.Fallback when _localizationProvider.FallbackDocsetPath != null:
-                    return _localizationProvider.FallbackDocsetPath.Value.Concat(file.Path);
+                case FileOrigin.Fallback when _buildOptions.FallbackDocsetPath != null:
+                    return _buildOptions.FallbackDocsetPath.Value.Concat(file.Path);
 
                 default:
                     throw new InvalidOperationException();
@@ -152,8 +152,10 @@ namespace Microsoft.Docs.Build
                 case FileOrigin.Default:
                     return GetFiles(_docsetPath).Select(file => new FilePath(file)).ToArray();
 
-                case FileOrigin.Fallback when _localizationProvider.FallbackDocsetPath != null:
-                    return GetFiles(_localizationProvider.FallbackDocsetPath).Select(file => new FilePath(file, FileOrigin.Fallback)).ToArray();
+                case FileOrigin.Fallback:
+                    return  _buildOptions.FallbackDocsetPath is null
+                        ? Array.Empty<FilePath>()
+                        : GetFiles(_buildOptions.FallbackDocsetPath).Select(file => new FilePath(file, FileOrigin.Fallback)).ToArray();
 
                 case FileOrigin.Dependency when dependencyName != null:
                     var package = _config.Dependencies[dependencyName.Value];

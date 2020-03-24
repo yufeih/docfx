@@ -19,24 +19,21 @@ namespace Microsoft.Docs.Build
             AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
         });
 
-        private readonly string _docsetPath;
+        private readonly BuildOptions _buildOptions;
         private readonly Action<HttpRequestMessage>? _credentialProvider;
         private readonly OpsConfigAdapter? _opsConfigAdapter;
         private readonly FetchOptions _fetchOptions;
-        private readonly Docset? _fallbackDocset;
 
         public FileResolver(
-            string docsetPath,
+            BuildOptions buildOptions,
             Action<HttpRequestMessage>? credentialProvider = null,
             OpsConfigAdapter? opsConfigAdapter = null,
-            FetchOptions fetchOptions = default,
-            Docset? fallbackDocset = null)
+            FetchOptions fetchOptions = default)
         {
-            _docsetPath = docsetPath;
+            _buildOptions = buildOptions;
             _opsConfigAdapter = opsConfigAdapter;
             _fetchOptions = fetchOptions;
             _credentialProvider = credentialProvider;
-            _fallbackDocset = fallbackDocset;
         }
 
         public string ReadString(SourceInfo<string> file)
@@ -54,13 +51,13 @@ namespace Microsoft.Docs.Build
 
             if (!UrlUtility.IsHttp(file))
             {
-                var localFilePath = Path.Combine(_docsetPath, file);
+                var localFilePath = Path.Combine(_buildOptions.DocsetPath, file);
                 if (File.Exists(localFilePath))
                 {
                     return File.OpenRead(localFilePath);
                 }
-                else if (_fallbackDocset != null
-                    && File.Exists(localFilePath = Path.Combine(_fallbackDocset.DocsetPath, file)))
+                else if (_buildOptions.FallbackDocsetPath != null &&
+                    File.Exists(localFilePath = Path.Combine(_buildOptions.FallbackDocsetPath, file)))
                 {
                     return File.OpenRead(localFilePath);
                 }

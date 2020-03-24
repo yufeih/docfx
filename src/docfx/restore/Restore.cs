@@ -78,7 +78,7 @@ namespace Microsoft.Docs.Build
         private static async Task RestoreFiles(string docsetPath, Config config, ErrorLog errorLog, FetchOptions fetchOptions)
         {
             var credentialProvider = config.GetCredentialProvider();
-            var fileResolver = new FileResolver(docsetPath, credentialProvider, new OpsConfigAdapter(errorLog, credentialProvider), fetchOptions);
+            var fileResolver = new FileResolver(buildOptions, credentialProvider, new OpsConfigAdapter(errorLog, credentialProvider), fetchOptions);
             await ParallelUtility.ForEach(config.GetFileReferences(), fileResolver.Download);
         }
 

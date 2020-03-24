@@ -1,14 +1,17 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Globalization;
 using System.IO;
 
 namespace Microsoft.Docs.Build
 {
-    internal class LocalizationProvider
+    internal class BuildOptions
     {
+        public PathString DocsetPath { get; }
+
+        public PathString? FallbackDocsetPath { get; }
+
         /// <summary>
         /// Gets the lower-case culture name computed from <see cref="CommandLineOptions.Locale" or <see cref="Config.DefaultLocale"/>/>
         /// </summary>
@@ -16,11 +19,11 @@ namespace Microsoft.Docs.Build
 
         public CultureInfo Culture { get; }
 
-        public PathString? FallbackDocsetPath { get; }
+        public bool IsLocalizedBuild { get; }
 
         public bool EnableSideBySide { get; }
 
-        public LocalizationProvider(PackageResolver packageResolver, Config config, string? locale, string docsetPath, Repository? repository)
+        public BuildOptions(PackageResolver packageResolver, Config config, string? locale, string docsetPath, Repository? repository)
         {
             Locale = !string.IsNullOrEmpty(locale) ? locale.ToLowerInvariant() : config.DefaultLocale;
             Culture = CreateCultureInfo(Locale);
@@ -33,11 +36,6 @@ namespace Microsoft.Docs.Build
 
                 FallbackDocsetPath = GetFallbackDocsetPath(docsetPath, repository, packageResolver);
             }
-        }
-
-        public Docset? GetFallbackDocset()
-        {
-            return FallbackDocsetPath != null ? new Docset(FallbackDocsetPath) : null;
         }
 
         private static PathString? GetFallbackDocsetPath(string docsetPath, Repository repository, PackageResolver packageResolver)

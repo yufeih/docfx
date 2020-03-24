@@ -16,7 +16,7 @@ namespace Microsoft.Docs.Build
         private static readonly Docset s_docset = new Docset(Directory.GetCurrentDirectory());
         private static readonly PackageResolver s_packageResolver = new PackageResolver(s_docsetPath, s_config);
         private static readonly TemplateEngine s_templateEngine = new TemplateEngine(s_docsetPath, s_config, "en-us", s_packageResolver);
-        private static readonly LocalizationProvider s_loc = new LocalizationProvider(s_packageResolver, s_config, "en-us", s_docsetPath, s_repository);
+        private static readonly BuildOptions s_loc = new BuildOptions(s_packageResolver, s_config, "en-us", s_docsetPath, s_repository);
         private static readonly Input s_input = new Input(s_docsetPath, s_config, s_packageResolver, s_repositoryProvider, s_loc);
         private static readonly BuildScope s_buildScope = new BuildScope(s_config, s_input, null);
         private static readonly DocumentProvider s_documentProvider = new DocumentProvider(s_config, s_loc, s_docset, null, s_buildScope, s_input, s_templateEngine);

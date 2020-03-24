@@ -30,7 +30,7 @@ namespace Microsoft.Docs.Build
                 file.SiteUrl,
                 outputPath,
                 file.FilePath.Path,
-                context.LocalizationProvider.Locale,
+                context.BuildOptions.Locale,
                 model.Metadata.Monikers,
                 context.MonikerProvider.GetConfigMonikerRange(file.FilePath));
 

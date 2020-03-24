@@ -60,17 +60,13 @@ namespace Microsoft.Docs.Build
                     return true;
 
                 using var packageResolver = new PackageResolver(docsetPath, config, options.FetchOptions);
-                var localizationProvider = new LocalizationProvider(packageResolver, config, locale, docsetPath, repository);
+                var buildOptions = new BuildOptions(packageResolver, config, locale, docsetPath, repository);
                 var repositoryProvider = new RepositoryProvider(repository);
-                var input = new Input(docsetPath, config, packageResolver, repositoryProvider, localizationProvider);
-
-                // get docsets(build docset, fallback docset and dependency docsets)
-                var docset = new Docset(docsetPath);
-                var fallbackDocset = localizationProvider.GetFallbackDocset();
+                var input = new Input(docsetPath, config, packageResolver, repositoryProvider, buildOptions);
 
                 // run build based on docsets
                 outputPath ??= Path.Combine(docsetPath, config.OutputPath);
-                Run(config, docset, fallbackDocset, options, errorLog, outputPath, input, repositoryProvider, localizationProvider, packageResolver);
+                Run(config, options, errorLog, outputPath, input, repositoryProvider, buildOptions, packageResolver);
                 return false;
             }
             catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
@@ -87,17 +83,15 @@ namespace Microsoft.Docs.Build
 
         private static void Run(
             Config config,
-            Docset docset,
-            Docset? fallbackDocset,
             CommandLineOptions options,
             ErrorLog errorLog,
             string outputPath,
             Input input,
             RepositoryProvider repositoryProvider,
-            LocalizationProvider localizationProvider,
+            BuildOptions buildOptions,
             PackageResolver packageResolver)
         {
-            using var context = new Context(outputPath, errorLog, options, config, docset, fallbackDocset, input, repositoryProvider, localizationProvider, packageResolver);
+            using var context = new Context(outputPath, errorLog, options, config, input, repositoryProvider, buildOptions, packageResolver);
             context.BuildQueue.Enqueue(context.BuildScope.Files.Concat(context.RedirectionProvider.Files));
 
             using (Progress.Start("Building files"))
