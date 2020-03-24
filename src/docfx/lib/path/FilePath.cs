@@ -29,7 +29,7 @@ namespace Microsoft.Docs.Build
         /// <summary>
         /// Indicate if the file is from git commit history.
         /// </summary>
-        public bool IsGitHistory { get; }
+        public bool IsGitCommit { get; }
 
         public FilePath(string path, FileOrigin origin = FileOrigin.Default)
         {
@@ -39,11 +39,11 @@ namespace Microsoft.Docs.Build
             Origin = origin;
         }
 
-        public FilePath(string path, bool isGitHistory)
+        public FilePath(string path, bool isGitCommit)
         {
             Path = new PathString(path);
             Origin = FileOrigin.Fallback;
-            IsGitHistory = isGitHistory;
+            IsGitCommit = isGitCommit;
         }
 
         public FilePath(PathString path, PathString dependencyName)
@@ -77,7 +77,7 @@ namespace Microsoft.Docs.Build
                     break;
             }
 
-            if (IsGitHistory)
+            if (IsGitCommit)
             {
                 tags += $"!";
             }
@@ -92,7 +92,7 @@ namespace Microsoft.Docs.Build
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Path, DependencyName, Origin, IsGitHistory);
+            return HashCode.Combine(Path, DependencyName, Origin, IsGitCommit);
         }
 
         public bool Equals(FilePath? other)
@@ -105,7 +105,7 @@ namespace Microsoft.Docs.Build
             return Path.Equals(other.Path) &&
                    DependencyName.Equals(other.DependencyName) &&
                    other.Origin == Origin &&
-                   IsGitHistory == other.IsGitHistory;
+                   IsGitCommit == other.IsGitCommit;
         }
 
         public int CompareTo(FilePath other)
@@ -116,7 +116,7 @@ namespace Microsoft.Docs.Build
             if (result == 0)
                 result = DependencyName.CompareTo(other.DependencyName);
             if (result == 0)
-                result = IsGitHistory.CompareTo(other.IsGitHistory);
+                result = IsGitCommit.CompareTo(other.IsGitCommit);
 
             return result;
         }

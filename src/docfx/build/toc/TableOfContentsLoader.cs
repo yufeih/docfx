@@ -396,7 +396,7 @@ namespace Microsoft.Docs.Build
                         var subToc = Resolve(tocFileName);
                         if (subToc != null)
                         {
-                            if (!subToc.Value.filePath.FilePath.IsGitHistory)
+                            if (!subToc.Value.filePath.FilePath.IsGitCommit)
                             {
                                 return subToc.Value;
                             }
