@@ -12,7 +12,7 @@ namespace Microsoft.Docs.Build
     internal class FilePath : IEquatable<FilePath>, IComparable<FilePath>
     {
         /// <summary>
-        /// Gets the file path relative to the main docset(fallback docset).
+        /// Gets the file path relative to the main docset.
         /// </summary>
         public PathString Path { get; }
 
@@ -27,14 +27,9 @@ namespace Microsoft.Docs.Build
         public FileOrigin Origin { get; }
 
         /// <summary>
-        /// Gets the commit id if this file is owned by a git repository and is not the latest version.
-        /// </summary>
-        public string? Commit { get; }
-
-        /// <summary>
         /// Indicate if the file is from git commit history.
         /// </summary>
-        public bool IsFromHistory => Commit != null;
+        public bool IsGitHistory { get; }
 
         public FilePath(string path, FileOrigin origin = FileOrigin.Default)
         {
@@ -44,32 +39,20 @@ namespace Microsoft.Docs.Build
             Origin = origin;
         }
 
-        public FilePath(string path, string? commit, FileOrigin origin)
+        public FilePath(string path, bool isGitHistory)
         {
             Path = new PathString(path);
-            Origin = origin;
-            Commit = commit;
+            Origin = FileOrigin.Fallback;
+            IsGitHistory = isGitHistory;
         }
 
-        public FilePath(string path, PathString dependencyName)
+        public FilePath(PathString path, PathString dependencyName)
         {
-            Path = new PathString(System.IO.Path.Combine(dependencyName, path));
+            Path = path;
             DependencyName = dependencyName;
             Origin = FileOrigin.Dependency;
-        }
 
-        /// <summary>
-        /// Gets the path relative to docset root or dependency repository root
-        /// </summary>
-        public PathString GetPathToOrigin()
-        {
-            if (Origin == FileOrigin.Dependency)
-            {
-                Debug.Assert(!string.IsNullOrEmpty(DependencyName));
-                return new PathString(System.IO.Path.GetRelativePath(DependencyName, Path));
-            }
-
-            return Path;
+            Debug.Assert(Path.StartsWithPath(DependencyName, out _));
         }
 
         public static bool operator ==(FilePath? a, FilePath? b) => Equals(a, b);
@@ -94,9 +77,9 @@ namespace Microsoft.Docs.Build
                     break;
             }
 
-            if (Commit != null)
+            if (IsGitHistory)
             {
-                tags += $"[{Commit}]";
+                tags += $"!";
             }
 
             return tags.Length > 0 ? $"{Path} {tags}" : $"{Path}";
@@ -109,7 +92,7 @@ namespace Microsoft.Docs.Build
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Path, DependencyName, Origin, Commit);
+            return HashCode.Combine(Path, DependencyName, Origin, IsGitHistory);
         }
 
         public bool Equals(FilePath? other)
@@ -122,7 +105,7 @@ namespace Microsoft.Docs.Build
             return Path.Equals(other.Path) &&
                    DependencyName.Equals(other.DependencyName) &&
                    other.Origin == Origin &&
-                   Commit == other.Commit;
+                   IsGitHistory == other.IsGitHistory;
         }
 
         public int CompareTo(FilePath other)
@@ -133,7 +116,7 @@ namespace Microsoft.Docs.Build
             if (result == 0)
                 result = DependencyName.CompareTo(other.DependencyName);
             if (result == 0)
-                result = string.CompareOrdinal(Commit, other.Commit);
+                result = IsGitHistory.CompareTo(other.IsGitHistory);
 
             return result;
         }
