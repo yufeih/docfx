@@ -173,8 +173,17 @@ namespace Microsoft.Docs.Build
                 var file = _documentProvider.GetDocument(path);
                 Debug.Assert(file.ContentType == ContentType.TableOfContents);
 
-                var (errors, _, referencedDocuments, referencedTocs) = _tocLoader.Load(file);
+                var (errors, toc) = _tocLoader.Load(file);
                 _errorLog.Write(errors);
+
+                var referencedDocuments = new List<Document>();
+                var referencedTocs = new List<Document>();
+
+                toc.Walk(node =>
+                {
+                    referencedDocuments.AddIfNotNull(node.Document);
+                    referencedTocs.AddIfNotNull(node.NestedToc);
+                });
 
                 tocReferences.TryAdd(file, (referencedDocuments, referencedTocs));
             }

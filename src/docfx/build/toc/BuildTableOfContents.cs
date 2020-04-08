@@ -14,7 +14,7 @@ namespace Microsoft.Docs.Build
             Debug.Assert(file.ContentType == ContentType.TableOfContents);
 
             // load toc tree
-            var (errors, node, _, _) = context.TableOfContentsLoader.Load(file);
+            var (errors, node) = context.TableOfContentsLoader.Load(file);
 
             var (metadataErrors, metadata) = context.MetadataProvider.GetMetadata(file.FilePath);
             errors.AddRange(metadataErrors);

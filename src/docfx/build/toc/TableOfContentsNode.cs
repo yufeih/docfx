@@ -37,8 +37,25 @@ namespace Microsoft.Docs.Build
         [JsonExtensionData]
         public JObject ExtensionData { get; set; } = new JObject();
 
+        /// <summary>
+        /// The article that this TOC node links to.
+        /// </summary>
         [JsonIgnore]
         public Document? Document { get; set; }
+
+        /// <summary>
+        /// The TOC file that is embedded inside this TOC node.
+        /// </summary>
+        [JsonIgnore]
+        public Document? NestedToc { get; set; }
+
+        /// <summary>
+        /// The TOC file that is referenced by this TOC node as a link.
+        /// </summary>
+        [JsonIgnore]
+        public Document? LinkedToc { get; set; }
+
+        public TableOfContentsNode() { }
 
         public TableOfContentsNode(TableOfContentsNode item)
         {
@@ -54,8 +71,18 @@ namespace Microsoft.Docs.Build
             ExtensionData = item.ExtensionData;
             Items = item.Items;
             Document = item.Document;
+            NestedToc = item.NestedToc;
+            LinkedToc = item.LinkedToc;
         }
 
-        public TableOfContentsNode() { }
+        public void Walk(Action<TableOfContentsNode> action)
+        {
+            foreach (var item in Items)
+            {
+                item.Value.Walk(action);
+            }
+
+            action(this);
+        }
     }
 }
