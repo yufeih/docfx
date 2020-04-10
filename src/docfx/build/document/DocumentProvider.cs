@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -43,6 +42,11 @@ namespace Microsoft.Docs.Build
             return _documents.GetOrAdd(path, GetDocumentCore);
         }
 
+        public string GetSiteUrl(FilePath path)
+        {
+            return GetDocument(path).SiteUrl;
+        }
+
         public string GetOutputPath(FilePath path, string[] monikers)
         {
             var file = GetDocument(path);
@@ -50,6 +54,15 @@ namespace Microsoft.Docs.Build
             var outputPath = UrlUtility.Combine(_config.BasePath, MonikerUtility.GetGroup(monikers) ?? "", file.SitePath);
 
             return _config.Legacy && file.IsPage ? LegacyUtility.ChangeExtension(outputPath, ".raw.page.json") : outputPath;
+        }
+
+        /// <summary>
+        /// In docs, canonical URL is later overwritten by template JINT code.
+        /// TODO: need to handle the logic difference when template code is removed.
+        /// </summary>
+        public string GetCanonicalUrl(FilePath path)
+        {
+            return $"https://{_config.HostName}/{_buildOptions.Locale}{GetSiteUrl(path)}";
         }
 
         public (string documentId, string versionIndependentId) GetDocumentId(FilePath path)
@@ -110,7 +123,6 @@ namespace Microsoft.Docs.Build
             var contentType = _buildScope.GetContentType(path);
             var mime = contentType == ContentType.Page ? ReadMimeFromFile(_input, path) : default;
             var isPage = (contentType == ContentType.Page || contentType == ContentType.Redirection) && _templateEngine.IsPage(mime);
-            var isExperimental = Path.GetFileNameWithoutExtension(path.Path).EndsWith(".experimental", PathUtility.PathComparison);
             var routedFilePath = ApplyRoutes(path.Path);
             var sitePath = FilePathToSitePath(routedFilePath, contentType, mime, _config.OutputJson, _config.UglifyUrl, isPage);
             if (_config.LowerCaseUrl)
@@ -119,9 +131,8 @@ namespace Microsoft.Docs.Build
             }
 
             var siteUrl = PathToAbsoluteUrl(Path.Combine(_config.BasePath, sitePath), contentType, mime, _config.OutputJson, isPage);
-            var canonicalUrl = GetCanonicalUrl(siteUrl, sitePath, isExperimental, contentType, mime, isPage);
 
-            return new Document(path, sitePath, siteUrl, canonicalUrl, contentType, mime, isExperimental, isPage);
+            return new Document(path, sitePath, siteUrl, contentType, mime, isPage);
         }
 
         private static string FilePathToSitePath(string path, ContentType contentType, string? mime, bool json, bool uglifyUrl, bool isPage)
@@ -163,7 +174,7 @@ namespace Microsoft.Docs.Build
 
         private static string PathToRelativeUrl(string path, ContentType contentType, string? mime, bool json, bool isPage)
         {
-            var url = path.Replace('\\', '/');
+            var url = RemoveExperimental(path.Replace('\\', '/'));
 
             switch (contentType)
             {
@@ -171,7 +182,7 @@ namespace Microsoft.Docs.Build
                 case ContentType.Page:
                     if (mime is null || isPage)
                     {
-                        var fileName = Path.GetFileNameWithoutExtension(path);
+                        var fileName = Path.GetFileNameWithoutExtension(url);
                         if (fileName.Equals("index", PathUtility.PathComparison))
                         {
                             var i = url.LastIndexOf('/');
@@ -190,25 +201,13 @@ namespace Microsoft.Docs.Build
             }
         }
 
-        /// <summary>
-        /// In docs, canonical URL is later overwritten by template JINT code.
-        /// TODO: need to handle the logic difference when template code is removed.
-        /// </summary>
-        private string GetCanonicalUrl(string siteUrl, string sitePath, bool isExperimental, ContentType contentType, string? mime, bool isPage)
+        private static string RemoveExperimental(string path)
         {
-            if (isExperimental)
-            {
-                sitePath = ReplaceLast(sitePath, ".experimental", "");
-                siteUrl = PathToAbsoluteUrl(sitePath, contentType, mime, _config.OutputJson, isPage);
-            }
+            var text = ".experimental.";
+            var i = path.LastIndexOf(text);
 
-            return $"https://{_config.HostName}/{_buildOptions.Locale}{siteUrl}";
-
-            string ReplaceLast(string source, string find, string replace)
-            {
-                var i = source.LastIndexOf(find);
-                return i >= 0 ? source.Remove(i, find.Length).Insert(i, replace) : source;
-            }
+            return i >= 0 && path.IndexOf('.', i + text.Length) < 0 && path.IndexOf('/', i + text.Length) < 0
+                ? path.Remove(i, text.Length - 1) : path;
         }
 
         private PathString ApplyRoutes(PathString path)

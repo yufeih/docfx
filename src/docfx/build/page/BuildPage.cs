@@ -172,7 +172,7 @@ namespace Microsoft.Docs.Build
             systemMetadata.ContributionInfo = contributionInfo;
 
             systemMetadata.Locale = context.BuildOptions.Locale;
-            systemMetadata.CanonicalUrl = file.CanonicalUrl;
+            systemMetadata.CanonicalUrl = context.DocumentProvider.GetCanonicalUrl(file.FilePath);
             systemMetadata.Path = file.SitePath;
             systemMetadata.CanonicalUrlPrefix = UrlUtility.Combine($"https://{context.Config.HostName}", systemMetadata.Locale, context.Config.BasePath) + "/";
 

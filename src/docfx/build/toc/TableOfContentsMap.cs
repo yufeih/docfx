@@ -49,7 +49,7 @@ namespace Microsoft.Docs.Build
         {
             var nearestToc = FindNearestToc(file);
 
-            return nearestToc != null ? PathUtility.NormalizeFile(PathUtility.GetRelativePathToFile(file.SitePath, nearestToc.SitePath)) : null;
+            return nearestToc != null ? UrlUtility.GetRelativeUrl(file.SiteUrl, nearestToc.SiteUrl) : null;
         }
 
         /// <summary>
@@ -61,11 +61,7 @@ namespace Microsoft.Docs.Build
         /// </summary>
         public Document? FindNearestToc(Document file)
         {
-            return FindNearestToc(
-                file,
-                _tocs.Value.tocToTocs.Keys.Where(toc => !toc.IsExperimental),
-                _tocs.Value.docToTocs,
-                file => file.FilePath.Path);
+            return FindNearestToc(file, _tocs.Value.tocToTocs.Keys, _tocs.Value.docToTocs, file => file.FilePath.Path);
         }
 
         /// <summary>
@@ -184,7 +180,7 @@ namespace Microsoft.Docs.Build
                 var docToTocs = (
                     from item in tocReferences
                     from doc in item.Value.docs
-                    where tocToTocs.ContainsKey(item.Key) && !item.Key.IsExperimental
+                    where tocToTocs.ContainsKey(item.Key)
                     group item.Key by doc).ToDictionary(g => g.Key, g => g.Distinct().ToArray());
 
                 return (tocToTocs, docToTocs);

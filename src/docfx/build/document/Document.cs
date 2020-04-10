@@ -57,16 +57,6 @@ namespace Microsoft.Docs.Build
         public string SiteUrl { get; }
 
         /// <summary>
-        /// Gets the canonical URL
-        /// </summary>
-        public string CanonicalUrl { get; }
-
-        /// <summary>
-        /// Gets a value indicating whether it's an experimental content
-        /// </summary>
-        public bool IsExperimental { get; }
-
-        /// <summary>
         /// Gets a value indicating whether the current document is schema data
         /// TODO: merge this with ContentType
         /// </summary>
@@ -79,10 +69,8 @@ namespace Microsoft.Docs.Build
             FilePath filePath,
             string sitePath,
             string siteUrl,
-            string canonicalUrl,
             ContentType contentType,
             SourceInfo<string?> mime,
-            bool isExperimental,
             bool isPage = true)
         {
             Debug.Assert(!Path.IsPathRooted(filePath.Path));
@@ -90,14 +78,11 @@ namespace Microsoft.Docs.Build
             FilePath = filePath;
             SitePath = sitePath;
             SiteUrl = siteUrl;
-            CanonicalUrl = canonicalUrl;
             ContentType = contentType;
             Mime = mime;
-            IsExperimental = isExperimental;
             IsPage = isPage;
 
             Debug.Assert(SiteUrl.StartsWith('/'));
-            Debug.Assert(!SiteUrl.EndsWith('/') || Path.GetFileNameWithoutExtension(SitePath) == "index");
         }
 
         public int CompareTo(Document other)
