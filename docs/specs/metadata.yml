@@ -303,7 +303,7 @@ outputs:
   docs/a.json: |
     {"a": undefined, "title": "B"}
   .errors.log: |
-    ["warning","yaml-header-syntax-error","Mapping values are not allowed in this context.","docs/a.md",2,5]
+    ["warning","yaml-header-syntax-error","*","docs/a.md",2,5]
 ---
 # Input metadata doesn't overwrite system generated metadata
 inputs:

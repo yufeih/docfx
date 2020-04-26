@@ -8,8 +8,6 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using LibGit2Sharp;
 using Newtonsoft.Json.Linq;
 using Yunit;
 
@@ -38,7 +36,7 @@ namespace Microsoft.Docs.Build
             var showDialogHook = typeof(Debug).GetField("s_ShowDialog", BindingFlags.Static | BindingFlags.NonPublic);
             showDialogHook?.SetValue(null, new Action<string, string, string, string>(Throw));
 
-            void Throw(string stackTrace, string message, string detailMessage, string info)
+            static void Throw(string stackTrace, string message, string detailMessage, string info)
             {
                 throw new Exception($"Debug.Assert failed: {message} {detailMessage}\n{stackTrace}");
             }
@@ -96,53 +94,40 @@ namespace Microsoft.Docs.Build
             IEnumerable<KeyValuePair<string, string>> variables = null)
         {
             Directory.CreateDirectory(path);
-
-            if (!LibGit2Sharp.Repository.IsValid(path))
-            {
-                LibGit2Sharp.Repository.Init(path);
-            }
-
-            using var repo = new LibGit2Sharp.Repository(path);
-            if (!string.IsNullOrEmpty(remote))
-            {
-                repo.Network.Remotes.Update("origin", r => r.Url = remote);
-            }
-
-            var lastCommit = default(Commit);
+            Git(path, "init");
+            Git(path, $"checkout --orphan \"{branch ?? "master"}\"");
+            Git(path, $"remote add origin {remote}");
 
             foreach (var commit in commits.Reverse())
             {
                 var commitIndex = 0;
-                var tree = new TreeDefinition();
+                var commitMessage = commit.Message ?? $"Commit {commitIndex++}";
 
-                foreach (var file in commit.Files)
+                foreach (var file in Directory.GetFiles(path, "*", SearchOption.AllDirectories))
                 {
-                    var content = ApplyVariables(file.Value, variables)?.Replace("\r", "") ?? "";
-                    var blob = repo.ObjectDatabase.CreateBlob(
-                        new MemoryStream(Encoding.UTF8.GetBytes(content)));
-
-                    tree.Add(file.Key, blob, Mode.NonExecutableFile);
+                    if (!file.Contains(".git"))
+                    {
+                        File.Delete(file);
+                    }
                 }
 
-                var author = new Signature(commit.Author, commit.Email, commit.Time);
-                var currentCommit = repo.ObjectDatabase.CreateCommit(
-                    author,
-                    author,
-                    commit.Message ?? $"Commit {commitIndex++}",
-                    repo.ObjectDatabase.CreateTree(tree),
-                    lastCommit != null ? new[] { lastCommit } : Array.Empty<Commit>(),
-                    prettifyMessage: false);
+                foreach (var (file, value) in commit.Files)
+                {
+                    var filePath = Path.Combine(path, file);
+                    var content = ApplyVariables(value, variables)?.Replace("\r", "") ?? "";
+                    Directory.CreateDirectory(Path.GetDirectoryName(filePath));
+                    File.WriteAllText(filePath, content);
+                }
 
-                lastCommit = currentCommit;
-            }
+                Environment.SetEnvironmentVariable("GIT_AUTHOR_NAME", commit.Author);
+                Environment.SetEnvironmentVariable("GIT_AUTHOR_EMAIL", commit.Email);
+                Environment.SetEnvironmentVariable("GIT_AUTHOR_DATE", commit.Time.ToString("o"));
+                Environment.SetEnvironmentVariable("GIT_COMMITTER_NAME", commit.Author);
+                Environment.SetEnvironmentVariable("GIT_COMMITTER_EMAIL", commit.Email);
+                Environment.SetEnvironmentVariable("GIT_COMMITTER_DATE", commit.Time.ToString("o"));
 
-            if (!string.IsNullOrEmpty(branch))
-            {
-                Commands.Checkout(repo, repo.Branches.Add(branch, lastCommit, allowOverwrite: true));
-            }
-            else
-            {
-                Commands.Checkout(repo, lastCommit);
+                Git(path, "add -A");
+                Git(path, $"commit -m \"{commitMessage}\n\"");
             }
         }
 
@@ -159,7 +144,7 @@ namespace Microsoft.Docs.Build
                 }
             });
 
-            Dictionary<string, DateTime> GetFileLastWriteTimes(string dir)
+            static Dictionary<string, DateTime> GetFileLastWriteTimes(string dir)
             {
                 return new DirectoryInfo(dir)
                     .GetFiles("*", SearchOption.AllDirectories)
@@ -178,6 +163,11 @@ namespace Microsoft.Docs.Build
                 }
             }
             return value;
+        }
+
+        private static void Git(string cwd, string args)
+        {
+            Process.Start(new ProcessStartInfo { FileName = "git", Arguments = args, WorkingDirectory = cwd, UseShellExecute = false }).WaitForExit();
         }
 
         private class Disposable : IDisposable
