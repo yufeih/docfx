@@ -95,7 +95,7 @@ outputs:
     {
       "content_git_url": "https://github.com/c/contribution1.zh-cn/blob/master/docs/a.md",
       "original_content_git_url": "https://github.com/c/contribution1.zh-cn/blob/master/docs/a.md",
-      "gitcommit": "https://github.com/c/contribution1.zh-cn/blob/81c533a0b7cc78260c82fb4e3b878f66158a9aca/docs/a.md"
+      "gitcommit": "https://github.com/c/contribution1.zh-cn/blob/d3b9fe663ca81e72bbb8ae0c5d71c14cf9b50d1f/docs/a.md"
     }
 ---
 # loc file contributor info 4
@@ -117,7 +117,7 @@ outputs:
     {
       "content_git_url":"https://github.com/c/contribution4.zh-cn/blob/master/docs/a.md",
       "original_content_git_url":"https://github.com/c/contribution4.zh-cn/blob/master-sxs/docs/a.md",
-      "gitcommit":"https://github.com/c/contribution4.zh-cn/blob/81c533a0b7cc78260c82fb4e3b878f66158a9aca/docs/a.md"
+      "gitcommit":"https://github.com/c/contribution4.zh-cn/blob/d3b9fe663ca81e72bbb8ae0c5d71c14cf9b50d1f/docs/a.md"
     }
 ---
 # loc page link and content fallback 1
@@ -332,7 +332,7 @@ repos:
           loc content
 outputs:
   docs/a.json: |
-    {"gitcommit":"https://github.com/bilingual/a.zh-cn/blob/6f4caab6b2c06f7a47cdb2d77de54e917f6e80b1/docs/a.md"}
+    {"gitcommit":"https://github.com/bilingual/a.zh-cn/blob/ba8a61b8af9528e45e8bd44822726a50027d789f/docs/a.md"}
 ---
 # conflicted toc files(source and loc)
 # 1. should not report warning

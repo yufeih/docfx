@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -119,15 +120,18 @@ namespace Microsoft.Docs.Build
                     File.WriteAllText(filePath, content);
                 }
 
-                Environment.SetEnvironmentVariable("GIT_AUTHOR_NAME", commit.Author);
-                Environment.SetEnvironmentVariable("GIT_AUTHOR_EMAIL", commit.Email);
-                Environment.SetEnvironmentVariable("GIT_AUTHOR_DATE", commit.Time.ToString("o"));
-                Environment.SetEnvironmentVariable("GIT_COMMITTER_NAME", commit.Author);
-                Environment.SetEnvironmentVariable("GIT_COMMITTER_EMAIL", commit.Email);
-                Environment.SetEnvironmentVariable("GIT_COMMITTER_DATE", commit.Time.ToString("o"));
+                var env = new Dictionary<string, string>
+                {
+                    ["GIT_AUTHOR_NAME"] = commit.Author,
+                    ["GIT_AUTHOR_EMAIL"] = commit.Email,
+                    ["GIT_AUTHOR_DATE"] = commit.Time.ToString("o"),
+                    ["GIT_COMMITTER_NAME"] = commit.Author,
+                    ["GIT_COMMITTER_EMAIL"] = commit.Email,
+                    ["GIT_COMMITTER_DATE"] = commit.Time.ToString("o"),
+                };
 
                 Git(path, "add -A");
-                Git(path, $"commit -m \"{commitMessage}\n\"");
+                Git(path, $"commit -m \"{commitMessage}\"", env);
             }
         }
 
@@ -165,9 +169,25 @@ namespace Microsoft.Docs.Build
             return value;
         }
 
-        private static void Git(string cwd, string args)
+        private static void Git(string cwd, string args, Dictionary<string, string> env = null)
         {
-            Process.Start(new ProcessStartInfo { FileName = "git", Arguments = args, WorkingDirectory = cwd, UseShellExecute = false }).WaitForExit();
+            var psi = new ProcessStartInfo
+            {
+                FileName = "git",
+                Arguments = args,
+                WorkingDirectory = cwd,
+                UseShellExecute = false,
+            };
+
+            if (env != null)
+            {
+                foreach (var (key, value) in env)
+                {
+                    psi.EnvironmentVariables.Add(key, value);
+                }
+            }
+
+            Process.Start(psi).WaitForExit();
         }
 
         private class Disposable : IDisposable

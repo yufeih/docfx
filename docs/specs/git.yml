@@ -296,7 +296,7 @@ outputs:
       "content_git_url": "https://github.com/testowner/testrepo/blob/master-content-git-url/docs/index.md",
       "original_content_git_url": "https://github.com/testowner/testrepo/blob/master-content-git-url/docs/index.md",
       "original_content_git_url_template": "{repo}/blob/{branch}/docs/index.md",
-      "gitcommit": "https://github.com/testowner/testrepo/blob/e662dbc7c5e582a14b863d6a6a82e495d6272f91/docs/index.md",
+      "gitcommit": "https://github.com/testowner/testrepo/blob/cd3b71cbd525f76ffead4c612ce2192f6587852f/docs/index.md",
     }
 ---
 # Specify editLink repo and branch in config
@@ -313,7 +313,7 @@ outputs:
     {
       "content_git_url": "https://github.com/contrib-owner/contrib-repo/blob/contrib-branch/docs/index.md",
       "original_content_git_url": "https://github.com/testowner/testrepo/blob/master-edit-link/docs/index.md",
-      "gitcommit": "https://github.com/testowner/testrepo/blob/e662dbc7c5e582a14b863d6a6a82e495d6272f91/docs/index.md",
+      "gitcommit": "https://github.com/testowner/testrepo/blob/cd3b71cbd525f76ffead4c612ce2192f6587852f/docs/index.md",
     }
 ---
 # Use commit time as updated_at when `updateTimeAsCommitBuildTime` is false
@@ -403,7 +403,7 @@ outputs:
     {
       "content_git_url": "https://github.com/testowner/testrepo/blob/building-branch/docs/index.md",
       "original_content_git_url": "https://github.com/testowner/testrepo/blob/building-branch/docs/index.md",
-      "gitcommit": "https://github.com/testowner/testrepo/blob/e662dbc7c5e582a14b863d6a6a82e495d6272f91/docs/index.md",
+      "gitcommit": "https://github.com/testowner/testrepo/blob/cd3b71cbd525f76ffead4c612ce2192f6587852f/docs/index.md",
     }
 ---
 # Use current repo's branch when edit branch isn't specified in contribution config,
@@ -420,7 +420,7 @@ outputs:
     {
       "content_git_url": "https://github.com/contrib-owner/contrib-repo/blob/default-building-branch/docs/index.md",
       "original_content_git_url": "https://github.com/testowner/testrepo/blob/default-building-branch/docs/index.md",
-      "gitcommit": "https://github.com/testowner/testrepo/blob/e662dbc7c5e582a14b863d6a6a82e495d6272f91/docs/index.md",
+      "gitcommit": "https://github.com/testowner/testrepo/blob/cd3b71cbd525f76ffead4c612ce2192f6587852f/docs/index.md",
     }
 ---
 # Show (original) content git (branch/commit) url for azure repos
@@ -437,7 +437,7 @@ outputs:
       "content_git_url":"https://github.com/docascode/a/blob/master/docs/index.md",
       "original_content_git_url":"https://dev.azure.com/docascode/project/_git/a?path=/docs/index.md&version=GBmaster&_a=contents",
       "original_content_git_url_template":"{repo}?path=/docs/index.md&version=GB{branch}&_a=contents",
-      "gitcommit":"https://dev.azure.com/docascode/project/_git/a/commit/73d1bc95f9df03e553c39cf8c685df09af8d5297?path=/docs/index.md&_a=contents"
+      "gitcommit":"https://dev.azure.com/docascode/project/_git/a/commit/4297fd3b3fabf591e799e1d8dc0fb9e36ce05733?path=/docs/index.md&_a=contents"
     }
 ---
 # Show git contribution info for azure repo
