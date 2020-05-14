@@ -19,7 +19,7 @@ namespace Microsoft.Docs.Build
             _errorLog = log;
         }
 
-        public void ValidateHeadings(Document file, List<ContentNode> nodes, bool isIncluded)
+        public void ValidateHeadings(FilePath file, List<ContentNode> nodes, bool isIncluded)
         {
             if (TryGetValidationDocumentType(file.ContentType, file.Mime.Value, isIncluded, out var documentType))
             {

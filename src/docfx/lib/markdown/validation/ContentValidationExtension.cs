@@ -21,13 +21,13 @@ namespace Microsoft.Docs.Build
         public static MarkdownPipelineBuilder UseContentValidation(
             this MarkdownPipelineBuilder builder,
             OnlineServiceMarkdownValidatorProvider? validatorProvider,
-            Func<List<ValidationNode>, Dictionary<Document, (List<ValidationNode> nodes, bool isIncluded)>> getValidationNodes,
+            Func<List<ValidationNode>, Dictionary<FilePath, (List<ValidationNode> nodes, bool isIncluded)>> getValidationNodes,
             Func<string, MarkdownObject, (string? content, object? file)> readFile)
         {
             var validators = validatorProvider?.GetValidators();
             return builder.Use(document =>
             {
-                if (((Document)InclusionContext.File).FilePath.Format == FileFormat.Markdown)
+                if (((FilePath)InclusionContext.File).Format == FileFormat.Markdown)
                 {
                     var documentNodes = new List<ValidationNode>();
                     document.Visit(node =>
@@ -76,7 +76,7 @@ namespace Microsoft.Docs.Build
                     {
                         foreach (var (doc, (nodes, _)) in allNodes)
                         {
-                            var currentFile = (Document)InclusionContext.File;
+                            var currentFile = (FilePath)InclusionContext.File;
                             if (doc == currentFile)
                             {
                                 continue;
@@ -86,7 +86,7 @@ namespace Microsoft.Docs.Build
                             while (index < nodes.Count)
                             {
                                 var current = nodes[index];
-                                if (current is InclusionNode inclusionNode && inclusionNode.IncludedFilePath == $"{currentFile.FilePath}")
+                                if (current is InclusionNode inclusionNode && inclusionNode.IncludedFilePath == $"{currentFile}")
                                 {
                                     nodes.RemoveAt(index);
                                     nodes.InsertRange(index, documentNodes.Select(node =>

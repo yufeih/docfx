@@ -18,7 +18,6 @@ namespace Microsoft.Docs.Build
     internal static class Telemetry
     {
         private static readonly TelemetryClient s_telemetryClient = new TelemetryClient(TelemetryConfiguration.CreateDefault());
-        private static readonly ConcurrentDictionary<FilePath, (string, string, string)> s_fileTypeCache = new ConcurrentDictionary<FilePath, (string, string, string)>();
 
         // Set value per dimension limit to int.MaxValue
         // https://github.com/microsoft/ApplicationInsights-dotnet/issues/1496
@@ -85,7 +84,7 @@ namespace Microsoft.Docs.Build
             s_buildFileTypeCountMetric.TrackValue(1, fileExtension, documentType, mimeType, s_os, s_version, s_repo, s_branch, s_correlationId);
         }
 
-        public static void TrackMarkdownElement(Document file, Dictionary<string, int> elementCount)
+        public static void TrackMarkdownElement(FilePath file, Dictionary<string, int> elementCount)
         {
             var (fileExtension, documentType, mimeType) = GetFileType(file.FilePath, file.ContentType, file.Mime.Value);
             foreach (var (elementType, value) in elementCount)
@@ -126,16 +125,6 @@ namespace Microsoft.Docs.Build
             {
                 TrackOperationTime(_name, _stopwatch.Elapsed);
             }
-        }
-
-        private static (string fileExtension, string documentType, string mimeType) GetFileType(FilePath filePath, ContentType contentType, string? mime)
-        {
-            return s_fileTypeCache.GetOrAdd(filePath, filePath =>
-            {
-                var fileExtension = CoalesceEmpty(Path.GetExtension(filePath.Path)?.ToLowerInvariant());
-                var mimeType = CoalesceEmpty(mime);
-                return (fileExtension, contentType.ToString(), mimeType);
-            });
         }
 
         private static string CoalesceEmpty(string? str)

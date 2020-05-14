@@ -30,7 +30,7 @@ namespace Microsoft.Docs.Build
                     return false;
                 });
 
-                Telemetry.TrackMarkdownElement((Document)InclusionContext.File, elementCount);
+                Telemetry.TrackMarkdownElement((FilePath)InclusionContext.File, elementCount);
             });
         }
 

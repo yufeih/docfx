@@ -21,6 +21,7 @@ namespace Microsoft.Docs.Build
     {
         private readonly LinkResolver _linkResolver;
         private readonly XrefResolver _xrefResolver;
+        private readonly DocumentProvider _documentProvider;
         private readonly Input _input;
         private readonly MonikerProvider _monikerProvider;
         private readonly TemplateEngine _templateEngine;
@@ -39,6 +40,7 @@ namespace Microsoft.Docs.Build
             FileResolver fileResolver,
             LinkResolver linkResolver,
             XrefResolver xrefResolver,
+            DocumentProvider documentProvider,
             MonikerProvider monikerProvider,
             TemplateEngine templateEngine,
             ContentValidator contentValidator)
@@ -46,6 +48,7 @@ namespace Microsoft.Docs.Build
             _input = input;
             _linkResolver = linkResolver;
             _xrefResolver = xrefResolver;
+            _documentProvider = documentProvider;
             _monikerProvider = monikerProvider;
             _templateEngine = templateEngine;
             _contentValidator = contentValidator;
@@ -189,9 +192,9 @@ namespace Microsoft.Docs.Build
         private (string? content, object? file) ReadFile(string path, MarkdownObject origin)
         {
             var status = t_status.Value!.Peek();
-            var referencingFile = (Document)InclusionContext.File;
+            var referencingFile = (FilePath)InclusionContext.File;
 
-            var (error, file) = _linkResolver.ResolveContent(new SourceInfo<string>(path, origin.ToSourceInfo()), referencingFile);
+            var (error, file) = _linkResolver.ResolveContent(new SourceInfo<string>(path, origin.ToSourceInfo()), _documentProvider.GetDocument(referencingFile));
             status.Errors.AddIfNotNull(error);
 
             return file is null ? default : (_input.ReadString(file.FilePath).Replace("\r", ""), file);
@@ -201,7 +204,10 @@ namespace Microsoft.Docs.Build
         {
             var status = t_status.Value!.Peek();
 
-            var (error, link, _) = _linkResolver.ResolveLink(new SourceInfo<string>(path, origin.ToSourceInfo()), (Document)InclusionContext.File, (Document)InclusionContext.RootFile);
+            var (error, link, _) = _linkResolver.ResolveLink(
+                new SourceInfo<string>(path, origin.ToSourceInfo()),
+                _documentProvider.GetDocument((FilePath)InclusionContext.File),
+                _documentProvider.GetDocument((FilePath)InclusionContext.RootFile));
             status.Errors.AddIfNotNull(error);
 
             return link;
@@ -211,7 +217,10 @@ namespace Microsoft.Docs.Build
         {
             var status = t_status.Value!.Peek();
 
-            var (error, link, _) = _linkResolver.ResolveLink(href, (Document)InclusionContext.File, (Document)InclusionContext.RootFile);
+            var (error, link, _) = _linkResolver.ResolveLink(
+                href,
+                _documentProvider.GetDocument((FilePath)InclusionContext.File),
+                _documentProvider.GetDocument((FilePath)InclusionContext.RootFile));
             status.Errors.AddIfNotNull(error);
 
             return link;
@@ -222,8 +231,8 @@ namespace Microsoft.Docs.Build
             var status = t_status.Value!.Peek();
 
             var (error, link, display, _) = href.HasValue
-                ? _xrefResolver.ResolveXrefByHref(href.Value, (Document)InclusionContext.File, (Document)InclusionContext.RootFile)
-                : _xrefResolver.ResolveXrefByUid(uid ?? default, (Document)InclusionContext.File, (Document)InclusionContext.RootFile);
+                ? _xrefResolver.ResolveXrefByHref(href.Value, _documentProvider.GetDocument((FilePath)InclusionContext.File), _documentProvider.GetDocument((FilePath)InclusionContext.RootFile))
+                : _xrefResolver.ResolveXrefByUid(uid ?? default, _documentProvider.GetDocument((FilePath)InclusionContext.File), _documentProvider.GetDocument((FilePath)InclusionContext.RootFile));
 
             if (!isShorthand)
             {
@@ -235,18 +244,18 @@ namespace Microsoft.Docs.Build
         private IReadOnlyList<string> GetMonikerRange(SourceInfo<string?> monikerRange)
         {
             var status = t_status.Value!.Peek();
-            var (monikerErrors, monikers) = _monikerProvider.GetZoneLevelMonikers(((Document)InclusionContext.RootFile).FilePath, monikerRange);
+            var (monikerErrors, monikers) = _monikerProvider.GetZoneLevelMonikers((FilePath)InclusionContext.RootFile, monikerRange);
             status.Errors.AddRange(monikerErrors);
             return monikers;
         }
 
-        private Dictionary<Document, (List<ValidationNode> nodes, bool isIncluded)> GetValidationNodes(List<ValidationNode> nodes)
+        private Dictionary<FilePath, (List<ValidationNode> nodes, bool isIncluded)> GetValidationNodes(List<ValidationNode> nodes)
         {
             var status = t_status.Value!.Peek();
 
-            if (!status.Nodes.ContainsKey((Document)InclusionContext.File))
+            if (!status.Nodes.ContainsKey((FilePath)InclusionContext.File))
             {
-                status.Nodes.Add((Document)InclusionContext.File, (nodes, InclusionContext.IsInclude));
+                status.Nodes.Add((FilePath)InclusionContext.File, (nodes, InclusionContext.IsInclude));
             }
 
             return status.Nodes;
@@ -265,7 +274,7 @@ namespace Microsoft.Docs.Build
         {
             public List<Error> Errors { get; } = new List<Error>();
 
-            public Dictionary<Document, (List<ValidationNode> nodes, bool isIncluded)> Nodes { get; } = new Dictionary<Document, (List<ValidationNode> nodes, bool isIncluded)>();
+            public Dictionary<FilePath, (List<ValidationNode> nodes, bool isIncluded)> Nodes { get; } = new Dictionary<FilePath, (List<ValidationNode> nodes, bool isIncluded)>();
         }
     }
 }
