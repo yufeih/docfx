@@ -11,61 +11,59 @@ namespace Microsoft.Docs.Build
 {
     internal class RedirectionProvider
     {
+        private readonly Config _config;
+        private readonly BuildOptions _buildOptions;
         private readonly ErrorLog _errorLog;
         private readonly DocumentProvider _documentProvider;
         private readonly MonikerProvider _monikerProvider;
         private readonly BuildScope _buildScope;
+        private readonly Repository? _repository;
+        private readonly Lazy<State> _state;
 
-        private readonly IReadOnlyDictionary<FilePath, string> _redirectUrls;
-        private readonly IReadOnlyDictionary<FilePath, FilePath> _renameHistory;
-        private readonly IReadOnlyDictionary<FilePath, (FilePath, SourceInfo?)> _redirectionHistory;
-
-        public IEnumerable<FilePath> Files => _redirectUrls.Keys;
+        public IEnumerable<FilePath> Files => _state.Value.RedirectUrls.Keys;
 
         public RedirectionProvider(
-            string docsetPath, string hostName, ErrorLog errorLog, BuildScope buildScope, Repository? repository, DocumentProvider documentProvider, MonikerProvider monikerProvider)
+            Config config, BuildOptions buildOptions, ErrorLog errorLog, BuildScope buildScope, Repository? repository, DocumentProvider documentProvider, MonikerProvider monikerProvider)
         {
+            _config = config;
+            _buildOptions = buildOptions;
             _errorLog = errorLog;
             _buildScope = buildScope;
+            _repository = repository;
             _documentProvider = documentProvider;
             _monikerProvider = monikerProvider;
-
-            using (Progress.Start("Loading redirections"))
-            {
-                var redirections = LoadRedirectionModel(docsetPath, repository);
-                _redirectUrls = GetRedirectUrls(redirections, hostName);
-                (_renameHistory, _redirectionHistory) = GetRenameAndRedirectionHistory(redirections, _redirectUrls);
-            }
+            _state = new Lazy<State>(LoadRedirections);
         }
 
         public bool Contains(FilePath file)
         {
-            return _redirectUrls.ContainsKey(file);
+            return _state.Value.RedirectUrls.ContainsKey(file);
         }
 
         public (Error?, string) GetRedirectUrl(FilePath file)
         {
             var redirectionChain = new Stack<FilePath>();
             var redirectionFile = file;
-            while (_redirectionHistory.TryGetValue(redirectionFile, out var item))
+            while (_state.Value.RedirectionHistory.TryGetValue(redirectionFile, out var item))
             {
                 var (renamedFrom, source) = item;
                 if (redirectionChain.Contains(redirectionFile))
                 {
                     redirectionChain.Push(redirectionFile);
-                    return (Errors.Redirection.CircularRedirection(source, redirectionChain.Reverse()), _redirectUrls[file]);
+                    return (Errors.Redirection.CircularRedirection(source, redirectionChain.Reverse()), _state.Value.RedirectUrls[file]);
                 }
                 redirectionChain.Push(redirectionFile);
                 redirectionFile = renamedFrom;
             }
 
-            return (null, _redirectUrls[file]);
+            return (null, _state.Value.RedirectUrls[file]);
         }
 
         public FilePath GetOriginalFile(FilePath file)
         {
             var renameChain = new HashSet<FilePath>();
-            while (_renameHistory.TryGetValue(file, out var renamedFrom))
+            var renameHistory = _state.Value.RenameHistory;
+            while (renameHistory.TryGetValue(file, out var renamedFrom))
             {
                 if (!renameChain.Add(file))
                 {
@@ -74,6 +72,18 @@ namespace Microsoft.Docs.Build
                 file = renamedFrom;
             }
             return file;
+        }
+
+        private State LoadRedirections()
+        {
+            using (Progress.Start("Loading redirections"))
+            {
+                var redirections = LoadRedirectionModel(_buildOptions.DocsetPath, _repository);
+                var redirectUrls = GetRedirectUrls(redirections, _config.HostName);
+                var (renameHistory, redirectionHistory) = GetRenameAndRedirectionHistory(redirections, redirectUrls);
+
+                return new State(redirectUrls, renameHistory, redirectionHistory);
+            }
         }
 
         private IReadOnlyDictionary<FilePath, string> GetRedirectUrls(RedirectionItem[] redirections, string hostName)
@@ -249,6 +259,22 @@ namespace Microsoft.Docs.Build
         {
             var (path, query, _) = UrlUtility.SplitUrl(redirectionUrl);
             return (path.EndsWith("/index", PathUtility.PathComparison) ? path.Substring(0, path.Length - "index".Length) : path, query);
+        }
+
+        private class State
+        {
+            public IReadOnlyDictionary<FilePath, string> RedirectUrls { get; }
+
+            public IReadOnlyDictionary<FilePath, FilePath> RenameHistory { get; }
+
+            public IReadOnlyDictionary<FilePath, (FilePath, SourceInfo?)> RedirectionHistory { get; }
+
+            public State(IReadOnlyDictionary<FilePath, string> redirectUrls, IReadOnlyDictionary<FilePath, FilePath> renameHistory, IReadOnlyDictionary<FilePath, (FilePath, SourceInfo?)> redirectionHistory)
+            {
+                RedirectUrls = redirectUrls;
+                RenameHistory = renameHistory;
+                RedirectionHistory = redirectionHistory;
+            }
         }
     }
 }

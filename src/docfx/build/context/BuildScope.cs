@@ -11,17 +11,19 @@ namespace Microsoft.Docs.Build
 {
     internal class BuildScope
     {
+        private readonly ErrorLog _errorLog;
         private readonly Config _config;
-        private readonly (Func<string, bool>, FileMappingConfig)[] _globs;
         private readonly Input _input;
+        private readonly BuildOptions _buildOptions;
+
         private readonly Func<string, bool>[] _resourceGlobs;
         private readonly HashSet<string> _configReferences;
+        private readonly (Func<string, bool>, FileMappingConfig)[] _globs;
 
         // On a case insensitive system, cannot simply get the actual file casing:
         // https://github.com/dotnet/corefx/issues/1086
         // This lookup table stores a list of actual filenames.
-        private readonly HashSet<PathString> _fileNames = new HashSet<PathString>();
-        private readonly ConcurrentDictionary<FilePath, ContentType> _files = new ConcurrentDictionary<FilePath, ContentType>();
+        private readonly Lazy<State> _state;
 
         private readonly ConcurrentDictionary<PathString, (PathString, FileMappingConfig?)> _fileMappings
                    = new ConcurrentDictionary<PathString, (PathString, FileMappingConfig?)>();
@@ -32,35 +34,23 @@ namespace Microsoft.Docs.Build
         /// <summary>
         /// Gets all the files and fallback files to build, excluding redirections.
         /// </summary>
-        public IEnumerable<FilePath> Files => _files.Keys;
+        public IEnumerable<FilePath> Files => _state.Value.Files.Keys;
 
         public BuildScope(ErrorLog errorLog, Config config, Input input, BuildOptions buildOptions)
         {
+            _errorLog = errorLog;
             _config = config;
             _globs = CreateGlobs(config);
             _input = input;
+            _buildOptions = buildOptions;
             _resourceGlobs = CreateResourceGlob(config);
             _configReferences = config.Extend.Concat(config.GetFileReferences()).Select(path => path.Value).ToHashSet(PathUtility.PathComparer);
-
-            using (Progress.Start("Globing files"))
-            {
-                var (fileNames, allFiles) = ListFiles(config, input, buildOptions);
-
-                ParallelUtility.ForEach(errorLog, allFiles, file =>
-                {
-                    if (Glob(file.Path))
-                    {
-                        _files.TryAdd(file, GetContentType(file));
-                    }
-                });
-
-                _fileNames = fileNames;
-            }
+            _state = new Lazy<State>(GlobFiles);
         }
 
         public IEnumerable<FilePath> GetFiles(ContentType contentType)
         {
-            return from pair in _files where pair.Value == contentType select pair.Key;
+            return from pair in _state.Value.Files where pair.Value == contentType select pair.Key;
         }
 
         public ContentType GetContentType(FilePath path)
@@ -146,7 +136,7 @@ namespace Microsoft.Docs.Build
             }
 
             // Pages outside build scope, don't build the file, leave href as is
-            if ((filePath.ContentType == ContentType.Page || filePath.ContentType == ContentType.TableOfContents) && !_files.ContainsKey(filePath.FilePath))
+            if ((filePath.ContentType == ContentType.Page || filePath.ContentType == ContentType.TableOfContents) && !_state.Value.Files.ContainsKey(filePath.FilePath))
             {
                 return true;
             }
@@ -156,7 +146,26 @@ namespace Microsoft.Docs.Build
 
         public bool GetActualFileName(PathString fileName, out PathString actualFileName)
         {
-            return _fileNames.TryGetValue(fileName, out actualFileName);
+            return _state.Value.FileNames.TryGetValue(fileName, out actualFileName);
+        }
+
+        private State GlobFiles()
+        {
+            using (Progress.Start("Globing files"))
+            {
+                var files = new ConcurrentDictionary<FilePath, ContentType>();
+                var (fileNames, allFiles) = ListFiles(_config, _input, _buildOptions);
+
+                ParallelUtility.ForEach(_errorLog, allFiles, file =>
+                {
+                    if (Glob(file.Path))
+                    {
+                        files.TryAdd(file, GetContentType(file.Path));
+                    }
+                });
+
+                return new State(files, fileNames);
+            }
         }
 
         private static (HashSet<PathString> fileNames, HashSet<FilePath> files) ListFiles(Config config, Input input, BuildOptions buildOptions)
@@ -237,6 +246,19 @@ namespace Microsoft.Docs.Build
                     return new SourceInfo<string?>("Conceptual", new SourceInfo(filePath, 1, 1));
                 default:
                     throw new NotSupportedException();
+            }
+        }
+
+        private class State
+        {
+            public ConcurrentDictionary<FilePath, ContentType> Files { get; }
+
+            public HashSet<PathString> FileNames { get; }
+
+            public State(ConcurrentDictionary<FilePath, ContentType> files, HashSet<PathString> fileNames)
+            {
+                Files = files;
+                FileNames = fileNames;
             }
         }
     }

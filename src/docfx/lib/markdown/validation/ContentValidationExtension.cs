@@ -9,8 +9,8 @@ using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 using Microsoft.DocAsCode.MarkdigEngine.Extensions;
+using Microsoft.DocAsCode.MarkdigEngine.Validators;
 using Microsoft.Docs.Validation;
-using Validations.DocFx.Adapter;
 
 #pragma warning disable CS0618
 
@@ -21,11 +21,10 @@ namespace Microsoft.Docs.Build
         public static MarkdownPipelineBuilder UseContentValidation(
             this MarkdownPipelineBuilder builder,
             MarkdownEngine markdownEngine,
-            OnlineServiceMarkdownValidatorProvider? validatorProvider,
+            Func<IEnumerable<IMarkdownObjectValidator>> getValidators,
             Func<List<ValidationNode>, Dictionary<Document, (List<ValidationNode> nodes, bool isIncluded)>> getValidationNodes,
             Func<string, MarkdownObject, (string? content, object? file)> readFile)
         {
-            var validators = validatorProvider?.GetValidators();
             return builder.Use(document =>
             {
                 if (((Document)InclusionContext.File).FilePath.Format == FileFormat.Markdown)
@@ -104,12 +103,9 @@ namespace Microsoft.Docs.Build
                         }
                     }
 
-                    if (validators != null)
+                    foreach (var validator in getValidators())
                     {
-                        foreach (var validator in validators)
-                        {
-                            validator.Validate(document);
-                        }
+                        validator.Validate(document);
                     }
                 }
             });

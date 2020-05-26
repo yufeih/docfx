@@ -15,6 +15,7 @@ using Markdig.Parsers.Inlines;
 using Markdig.Renderers;
 using Markdig.Syntax;
 using Microsoft.DocAsCode.MarkdigEngine.Extensions;
+using Microsoft.DocAsCode.MarkdigEngine.Validators;
 using Microsoft.Docs.Validation;
 using Validations.DocFx.Adapter;
 
@@ -30,11 +31,10 @@ namespace Microsoft.Docs.Build
         private readonly Input _input;
         private readonly MonikerProvider _monikerProvider;
         private readonly TemplateEngine _templateEngine;
-        private readonly string _markdownValidationRules;
         private readonly ContentValidator _contentValidator;
+        private readonly Lazy<IEnumerable<IMarkdownObjectValidator>> _validators;
 
         private readonly MarkdownContext _markdownContext;
-        private readonly OnlineServiceMarkdownValidatorProvider? _validatorProvider;
         private readonly MarkdownPipeline[] _pipelines;
 
         private static readonly ThreadLocal<Stack<Status>> t_status = new ThreadLocal<Stack<Status>>(() => new Stack<Status>());
@@ -59,14 +59,20 @@ namespace Microsoft.Docs.Build
             _contentValidator = contentValidator;
 
             _markdownContext = new MarkdownContext(GetToken, LogInfo, LogSuggestion, LogWarning, LogError, ReadFile, GetLink);
-            _markdownValidationRules = ContentValidator.GetMarkdownValidationRulesFilePath(fileResolver, config);
 
-            if (!string.IsNullOrEmpty(_markdownValidationRules))
+            _validators = new Lazy<IEnumerable<IMarkdownObjectValidator>>(() =>
             {
-                _validatorProvider = new OnlineServiceMarkdownValidatorProvider(
-                    new ContentValidationContext(_markdownValidationRules),
-                    new ContentValidationLogger(_markdownContext));
-            }
+                var markdownValidationRules = ContentValidator.GetMarkdownValidationRulesFilePath(fileResolver, config);
+
+                if (!string.IsNullOrEmpty(markdownValidationRules))
+                {
+                    return new OnlineServiceMarkdownValidatorProvider(
+                        new ContentValidationContext(markdownValidationRules),
+                        new ContentValidationLogger(_markdownContext)).GetValidators();
+                }
+
+                return Array.Empty<IMarkdownObjectValidator>();
+            });
 
             _pipelines = new[]
             {
@@ -198,7 +204,7 @@ namespace Microsoft.Docs.Build
                 .UseNoloc()
                 .UseTelemetry()
                 .UseMonikerZone(GetMonikerRange)
-                .UseContentValidation(this, _validatorProvider, GetValidationNodes, ReadFile)
+                .UseContentValidation(this, GetValidators, GetValidationNodes, ReadFile)
                 .UseFilePath()
 
                 // Extensions before this line sees inclusion AST twice:
@@ -324,6 +330,11 @@ namespace Microsoft.Docs.Build
             var (monikerErrors, monikers) = _monikerProvider.GetZoneLevelMonikers(((Document)InclusionContext.RootFile).FilePath, monikerRange);
             status.Errors.AddRange(monikerErrors);
             return monikers;
+        }
+
+        private IEnumerable<IMarkdownObjectValidator> GetValidators()
+        {
+            return _validators.Value;
         }
 
         private Dictionary<Document, (List<ValidationNode> nodes, bool isIncluded)> GetValidationNodes(List<ValidationNode> nodes)
