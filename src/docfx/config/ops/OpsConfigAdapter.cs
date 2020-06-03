@@ -137,6 +137,8 @@ namespace Microsoft.Docs.Build
 
             return JsonConvert.SerializeObject(new
             {
+                legacy = true,
+                outputUrlType = "Docs",
                 product = docset.product_name,
                 siteName = docset.site_name,
                 hostName = GetHostName(docset.site_name),

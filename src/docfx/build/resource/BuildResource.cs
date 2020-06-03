@@ -23,7 +23,7 @@ namespace Microsoft.Docs.Build
             var copy = true;
             var publishPath = outputPath;
 
-            if (!context.Config.CopyResources &&
+            if (context.Config.OutputType == OutputType.Json &&
                 context.Input.TryGetPhysicalPath(file.FilePath, out var physicalPath))
             {
                 copy = false;

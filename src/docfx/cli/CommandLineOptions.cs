@@ -10,7 +10,6 @@ namespace Microsoft.Docs.Build
     internal class CommandLineOptions
     {
         public string? Output;
-        public bool Legacy;
         public bool Verbose;
         public bool DryRun;
         public bool Stdin;
@@ -24,20 +23,12 @@ namespace Microsoft.Docs.Build
         {
             var config = new JObject
             {
-                ["legacy"] = Legacy,
                 ["dryRun"] = DryRun,
             };
 
             if (Output != null)
             {
                 config["outputPath"] = Output;
-            }
-
-            if (Legacy)
-            {
-                config["outputType"] = "Json";
-                config["outputUrlType"] = "Docs";
-                config["copyResources"] = false;
             }
 
             if (Template != null)

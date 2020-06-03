@@ -83,11 +83,6 @@ namespace Microsoft.Docs.Build
         public bool LowerCaseUrl { get; private set; } = true;
 
         /// <summary>
-        /// Gets whether resources are copied to output.
-        /// </summary>
-        public bool CopyResources { get; private set; } = true;
-
-        /// <summary>
         /// Gets the maximum errors to output.
         /// </summary>
         public int MaxErrors { get; private set; } = 1000;
