@@ -18,24 +18,7 @@ namespace Microsoft.Docs.Build
     /// </summary>
     internal class ChakraCoreJsEngine : IJavaScriptEngine
     {
-        // A pool of ChakraCore runtime and context. Create one context for each runtime.
-        private static readonly ConcurrentBag<JavaScriptContext> s_contextPool = new ConcurrentBag<JavaScriptContext>();
-
-        // Limit the maximum ChakraCore runtimes to current processor count.
-        private static readonly SemaphoreSlim s_contextThrottler = new SemaphoreSlim(Environment.ProcessorCount, Environment.ProcessorCount);
-
-        private static readonly ConcurrentDictionary<(JavaScriptContext, string scriptPath), JavaScriptValue> s_scriptExports
-                          = new ConcurrentDictionary<(JavaScriptContext, string scriptPath), JavaScriptValue>();
-
-        private static readonly JavaScriptNativeFunction s_requireFunction = new JavaScriptNativeFunction(Require);
-
-        private static readonly ThreadLocal<Stack<string>> t_dirnames = new ThreadLocal<Stack<string>>(() => new Stack<string>());
-
-        private static readonly ThreadLocal<Dictionary<string, JavaScriptValue>?> t_modules = new ThreadLocal<Dictionary<string, JavaScriptValue>?>();
-
-        private static int s_currentSourceContext;
-
-        private readonly ConcurrentDictionary<JavaScriptContext, JavaScriptValue> _globals = new ConcurrentDictionary<JavaScriptContext, JavaScriptValue>();
+        private static readonly ThreadLocal<SingleThreadJsEngine> t_engine = new ThreadLocal<SingleThreadJsEngine>(() => new SingleThreadJsEngine());
 
         private readonly string _scriptDir;
         private readonly JObject? _global;
@@ -48,24 +31,39 @@ namespace Microsoft.Docs.Build
 
         public JToken Run(string scriptPath, string methodName, JToken arg)
         {
-            s_contextThrottler.Wait();
+            return t_engine.Value!.Run(Path.GetFullPath(Path.Combine(_scriptDir, scriptPath)), methodName, _global, arg);
+        }
 
-            try
+        private class SingleThreadJsEngine
+        {
+            private static readonly JavaScriptNativeFunction s_requireFunction = new JavaScriptNativeFunction(Require);
+            private static readonly ThreadLocal<Stack<string>> t_dirnames = new ThreadLocal<Stack<string>>(() => new Stack<string>());
+            private static readonly ThreadLocal<Dictionary<string, JavaScriptValue>?> t_modules = new ThreadLocal<Dictionary<string, JavaScriptValue>?>();
+            private static int s_currentSourceContext;
+
+            private readonly JavaScriptContext _context = CreateContext();
+
+            private readonly ConcurrentDictionary<string, JavaScriptValue> _scriptExports = new ConcurrentDictionary<string, JavaScriptValue>();
+            private readonly ConcurrentDictionary<JToken, JavaScriptValue> _globals = new ConcurrentDictionary<JToken, JavaScriptValue>(ReferenceEqualsComparer.Default);
+
+            public SingleThreadJsEngine()
             {
-                var context = s_contextPool.TryTake(out var existingContext) ? existingContext : CreateContext();
+                _context = CreateContext();
+            }
 
-                Native.ThrowIfError(Native.JsSetCurrentContext(context));
+            public JToken Run(string scriptPath, string methodName, JToken? global, JToken arg)
+            {
+                Native.ThrowIfError(Native.JsSetCurrentContext(_context));
 
                 try
                 {
-                    var exports = GetScriptExports(context, Path.GetFullPath(Path.Combine(_scriptDir, scriptPath)));
-                    var global = GetGlobal(context);
+                    var exports = GetScriptExports(scriptPath);
                     var method = exports.GetProperty(JavaScriptPropertyId.FromString(methodName));
                     var input = ToJavaScriptValue(arg);
 
-                    if (global.IsValid)
+                    if (global != null)
                     {
-                        input.SetProperty(JavaScriptPropertyId.FromString("__global"), global, useStrictRules: true);
+                        input.SetProperty(JavaScriptPropertyId.FromString("__global"), GetGlobal(global), useStrictRules: true);
                     }
 
                     var output = method.CallFunction(JavaScriptValue.Undefined, input);
@@ -79,230 +77,220 @@ namespace Microsoft.Docs.Build
                 finally
                 {
                     Native.ThrowIfError(Native.JsSetCurrentContext(JavaScriptContext.Invalid));
-                    s_contextPool.Add(context);
                 }
             }
-            finally
+
+            private static JavaScriptContext CreateContext()
             {
-                s_contextThrottler.Release();
+                var flags = JavaScriptRuntimeAttributes.DisableBackgroundWork |
+                            JavaScriptRuntimeAttributes.DisableEval |
+                            JavaScriptRuntimeAttributes.EnableIdleProcessing;
+
+                return JavaScriptRuntime.Create(flags, JavaScriptRuntimeVersion.VersionEdge).CreateContext();
             }
-        }
 
-        private static JavaScriptContext CreateContext()
-        {
-            var flags = JavaScriptRuntimeAttributes.DisableBackgroundWork |
-                        JavaScriptRuntimeAttributes.DisableEval |
-                        JavaScriptRuntimeAttributes.EnableIdleProcessing;
-
-            return JavaScriptRuntime.Create(flags, JavaScriptRuntimeVersion.VersionEdge).CreateContext();
-        }
-
-        private static JavaScriptValue GetScriptExports(JavaScriptContext context, string scriptPath)
-        {
-            return s_scriptExports.GetOrAdd((context, scriptPath), key =>
+            private JavaScriptValue GetScriptExports(string scriptPath)
             {
-                t_modules.Value = new Dictionary<string, JavaScriptValue>(PathUtility.PathComparer);
+                return _scriptExports.GetOrAdd(scriptPath, key =>
+                {
+                    t_modules.Value = new Dictionary<string, JavaScriptValue>(PathUtility.PathComparer);
+
+                    try
+                    {
+                        var exports = Run(key);
+
+                        // Avoid exports been GC'ed by javascript garbage collector.
+                        exports.AddRef();
+                        return exports;
+                    }
+                    finally
+                    {
+                        t_modules.Value = null;
+                    }
+                });
+            }
+
+            private JavaScriptValue GetGlobal(JToken global)
+            {
+                return _globals.GetOrAdd(global, key =>
+                {
+                    var global = ToJavaScriptValue(key);
+
+                    // Avoid exports been GCed by javascript garbage collector.
+                    global.AddRef();
+                    return global;
+                });
+            }
+
+            private static JavaScriptValue Run(string scriptPath)
+            {
+                var modules = t_modules.Value!;
+                if (modules.TryGetValue(scriptPath, out var module))
+                {
+                    return module;
+                }
+
+                var sourceCode = File.ReadAllText(scriptPath);
+                var exports = modules[scriptPath] = JavaScriptValue.CreateObject();
+
+                // add `process` to input to get the correct file path while running script inside docs-ui
+                var script = $@"(function (module, exports, __dirname, require, process) {{{sourceCode}
+}})";
+                var dirname = Path.GetDirectoryName(scriptPath) ?? "";
+
+                t_dirnames.Value!.Push(dirname);
 
                 try
                 {
-                    var exports = Run(key.scriptPath);
+                    var sourceContext = JavaScriptSourceContext.FromIntPtr((IntPtr)Interlocked.Increment(ref s_currentSourceContext));
 
-                    // Avoid exports been GCed by javascript garbage collector.
-                    exports.AddRef();
+                    JavaScriptContext.RunScript(script, sourceContext, scriptPath).CallFunction(
+                        JavaScriptValue.Undefined, // this pointer
+                        JavaScriptValue.CreateObject(),
+                        exports,
+                        JavaScriptValue.FromString(dirname),
+                        JavaScriptValue.CreateFunction(s_requireFunction),
+                        JavaScriptValue.CreateObject());
+
                     return exports;
                 }
                 finally
                 {
-                    t_modules.Value = null;
+                    t_dirnames.Value.Pop();
                 }
-            });
-        }
-
-        private JavaScriptValue GetGlobal(JavaScriptContext context)
-        {
-            if (_global is null)
-            {
-                return JavaScriptValue.Invalid;
             }
 
-            return _globals.GetOrAdd(context, key =>
+            private static JavaScriptValue Require(
+                JavaScriptValue callee,
+                [MarshalAs(UnmanagedType.U1)] bool isConstructCall,
+                [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JavaScriptValue[] arguments,
+                ushort argumentCount,
+                IntPtr callbackData)
             {
-                var global = ToJavaScriptValue(_global);
+                // First argument is this pointer
+                if (argumentCount < 2)
+                {
+                    return JavaScriptValue.CreateObject();
+                }
 
-                // Avoid exports been GCed by javascript garbage collector.
-                global.AddRef();
-                return global;
-            });
-        }
+                try
+                {
+                    var dirname = t_dirnames.Value!.Peek();
+                    var scriptPath = Path.GetFullPath(Path.Combine(dirname, arguments[1].ToString()));
 
-        private static JavaScriptValue Run(string scriptPath)
-        {
-            var modules = t_modules.Value!;
-            if (modules.TryGetValue(scriptPath, out var module))
-            {
-                return module;
+                    return Run(scriptPath);
+                }
+                catch (Exception ex)
+                {
+                    Log.Write(ex);
+                    Native.JsSetException(JavaScriptValue.CreateError(JavaScriptValue.FromString(ex.Message)));
+                    return JavaScriptValue.Invalid;
+                }
             }
 
-            var sourceCode = File.ReadAllText(scriptPath);
-            var exports = modules[scriptPath] = JavaScriptValue.CreateObject();
-
-            // add `process` to input to get the correct file path while running script inside docs-ui
-            var script = $@"(function (module, exports, __dirname, require, process) {{{sourceCode}
-}})";
-            var dirname = Path.GetDirectoryName(scriptPath) ?? "";
-
-            t_dirnames.Value!.Push(dirname);
-
-            try
+            private static JavaScriptValue ToJavaScriptValue(JToken token)
             {
-                var sourceContext = JavaScriptSourceContext.FromIntPtr((IntPtr)Interlocked.Increment(ref s_currentSourceContext));
-
-                JavaScriptContext.RunScript(script, sourceContext, scriptPath).CallFunction(
-                    JavaScriptValue.Undefined, // this pointer
-                    JavaScriptValue.CreateObject(),
-                    exports,
-                    JavaScriptValue.FromString(dirname),
-                    JavaScriptValue.CreateFunction(s_requireFunction),
-                    JavaScriptValue.CreateObject());
-
-                return exports;
-            }
-            finally
-            {
-                t_dirnames.Value.Pop();
-            }
-        }
-
-        private static JavaScriptValue Require(
-            JavaScriptValue callee,
-            [MarshalAs(UnmanagedType.U1)] bool isConstructCall,
-            [MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 3)] JavaScriptValue[] arguments,
-            ushort argumentCount,
-            IntPtr callbackData)
-        {
-            // First argument is this pointer
-            if (argumentCount < 2)
-            {
-                return JavaScriptValue.CreateObject();
-            }
-
-            try
-            {
-                var dirname = t_dirnames.Value!.Peek();
-                var scriptPath = Path.GetFullPath(Path.Combine(dirname, arguments[1].ToString()));
-
-                return Run(scriptPath);
-            }
-            catch (Exception ex)
-            {
-                Log.Write(ex);
-                Native.JsSetException(JavaScriptValue.CreateError(JavaScriptValue.FromString(ex.Message)));
-                return JavaScriptValue.Invalid;
-            }
-        }
-
-        private static JavaScriptValue ToJavaScriptValue(JToken token)
-        {
-            switch (token)
-            {
-                case JArray arr:
-                    var resultArray = JavaScriptValue.CreateArray((uint)arr.Count);
-                    for (var i = 0; i < arr.Count; i++)
-                    {
-                        resultArray.SetIndexedProperty(
-                            JavaScriptValue.FromInt32(i), ToJavaScriptValue(arr[i]));
-                    }
-                    return resultArray;
-
-                case JObject obj:
-                    var resultObj = JavaScriptValue.CreateObject();
-                    foreach (var (name, value) in obj)
-                    {
-                        if (value != null)
+                switch (token)
+                {
+                    case JArray arr:
+                        var resultArray = JavaScriptValue.CreateArray((uint)arr.Count);
+                        for (var i = 0; i < arr.Count; i++)
                         {
-                            resultObj.SetProperty(
-                                JavaScriptPropertyId.FromString(name), ToJavaScriptValue(value), useStrictRules: true);
+                            resultArray.SetIndexedProperty(
+                                JavaScriptValue.FromInt32(i), ToJavaScriptValue(arr[i]));
                         }
-                    }
-                    return resultObj;
+                        return resultArray;
 
-                case JValue scalar:
-                    switch (scalar.Value)
-                    {
-                        case null:
-                            return JavaScriptValue.Null;
+                    case JObject obj:
+                        var resultObj = JavaScriptValue.CreateObject();
+                        foreach (var (name, value) in obj)
+                        {
+                            if (value != null)
+                            {
+                                resultObj.SetProperty(
+                                    JavaScriptPropertyId.FromString(name), ToJavaScriptValue(value), useStrictRules: true);
+                            }
+                        }
+                        return resultObj;
 
-                        case bool aBool:
-                            return JavaScriptValue.FromBoolean(aBool);
+                    case JValue scalar:
+                        switch (scalar.Value)
+                        {
+                            case null:
+                                return JavaScriptValue.Null;
 
-                        case string aString:
-                            return JavaScriptValue.FromString(aString);
+                            case bool aBool:
+                                return JavaScriptValue.FromBoolean(aBool);
 
-                        case DateTime aDate:
-                            var constructor = JavaScriptValue.GlobalObject.GetProperty(JavaScriptPropertyId.FromString("Date"));
-                            var args = new[] { JavaScriptValue.Undefined, JavaScriptValue.FromString(aDate.ToString("o", CultureInfo.InvariantCulture)) };
-                            Native.ThrowIfError(Native.JsConstructObject(constructor, args, 2, out var date));
-                            return date;
+                            case string aString:
+                                return JavaScriptValue.FromString(aString);
 
-                        case long aInt:
-                            return JavaScriptValue.FromInt32((int)aInt);
+                            case DateTime aDate:
+                                var constructor = JavaScriptValue.GlobalObject.GetProperty(JavaScriptPropertyId.FromString("Date"));
+                                var args = new[] { JavaScriptValue.Undefined, JavaScriptValue.FromString(aDate.ToString("o", CultureInfo.InvariantCulture)) };
+                                Native.ThrowIfError(Native.JsConstructObject(constructor, args, 2, out var date));
+                                return date;
 
-                        case double aDouble:
-                            return JavaScriptValue.FromDouble(aDouble);
-                    }
-                    break;
+                            case long aInt:
+                                return JavaScriptValue.FromInt32((int)aInt);
+
+                            case double aDouble:
+                                return JavaScriptValue.FromDouble(aDouble);
+                        }
+                        break;
+                }
+
+                throw new NotSupportedException($"Cannot marshal JToken type '{token.Type}'");
             }
 
-            throw new NotSupportedException($"Cannot marshal JToken type '{token.Type}'");
-        }
-
-        private static JToken ToJToken(JavaScriptValue value)
-        {
-            switch (value.ValueType)
+            private static JToken ToJToken(JavaScriptValue value)
             {
-                case JavaScriptValueType.Boolean:
-                    return value.ToBoolean();
+                switch (value.ValueType)
+                {
+                    case JavaScriptValueType.Boolean:
+                        return value.ToBoolean();
 
-                case JavaScriptValueType.Null:
-                    return JValue.CreateNull();
+                    case JavaScriptValueType.Null:
+                        return JValue.CreateNull();
 
-                case JavaScriptValueType.Undefined:
-                    return JValue.CreateUndefined();
+                    case JavaScriptValueType.Undefined:
+                        return JValue.CreateUndefined();
 
-                case JavaScriptValueType.String:
-                    return value.ToString();
+                    case JavaScriptValueType.String:
+                        return value.ToString();
 
-                case JavaScriptValueType.Number:
-                    var intNumber = value.ToInt32();
-                    var doubleNumber = value.ToDouble();
-                    return intNumber == doubleNumber ? (JValue)intNumber : (JValue)doubleNumber;
+                    case JavaScriptValueType.Number:
+                        var intNumber = value.ToInt32();
+                        var doubleNumber = value.ToDouble();
+                        return intNumber == doubleNumber ? (JValue)intNumber : (JValue)doubleNumber;
 
-                case JavaScriptValueType.Array:
-                    var arr = new JArray();
-                    var arrLength = value.GetProperty(JavaScriptPropertyId.FromString("length")).ToInt32();
-                    for (var i = 0; i < arrLength; i++)
-                    {
-                        arr.Add(ToJToken(value.GetIndexedProperty(JavaScriptValue.FromInt32(i))));
-                    }
-                    return arr;
-
-                case JavaScriptValueType.Object:
-                case JavaScriptValueType.Error:
-                    var obj = new JObject();
-                    var names = value.GetOwnPropertyNames();
-                    var namesLength = names.GetProperty(JavaScriptPropertyId.FromString("length")).ToInt32();
-                    for (var i = 0; i < namesLength; i++)
-                    {
-                        var name = names.GetIndexedProperty(JavaScriptValue.FromInt32(i)).ToString();
-                        if (name != "__global")
+                    case JavaScriptValueType.Array:
+                        var arr = new JArray();
+                        var arrLength = value.GetProperty(JavaScriptPropertyId.FromString("length")).ToInt32();
+                        for (var i = 0; i < arrLength; i++)
                         {
-                            obj[name] = ToJToken(value.GetProperty(JavaScriptPropertyId.FromString(name)));
+                            arr.Add(ToJToken(value.GetIndexedProperty(JavaScriptValue.FromInt32(i))));
                         }
-                    }
-                    return obj;
+                        return arr;
 
-                default:
-                    throw new NotSupportedException($"Cannot marshal javascript type '{value.ValueType}'");
+                    case JavaScriptValueType.Object:
+                    case JavaScriptValueType.Error:
+                        var obj = new JObject();
+                        var names = value.GetOwnPropertyNames();
+                        var namesLength = names.GetProperty(JavaScriptPropertyId.FromString("length")).ToInt32();
+                        for (var i = 0; i < namesLength; i++)
+                        {
+                            var name = names.GetIndexedProperty(JavaScriptValue.FromInt32(i)).ToString();
+                            if (name != "__global")
+                            {
+                                obj[name] = ToJToken(value.GetProperty(JavaScriptPropertyId.FromString(name)));
+                            }
+                        }
+                        return obj;
+
+                    default:
+                        throw new NotSupportedException($"Cannot marshal javascript type '{value.ValueType}'");
+                }
             }
         }
     }
