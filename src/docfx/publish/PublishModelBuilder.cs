@@ -99,7 +99,7 @@ namespace Microsoft.Docs.Build
                         && item == current.Value.Item1
                         && !_config.DryRun)
                     {
-                        writeOutput?.Invoke();
+                        // writeOutput?.Invoke();
                     }
                 }
             }

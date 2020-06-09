@@ -46,11 +46,6 @@ namespace Microsoft.Docs.Build
             private readonly ConcurrentDictionary<string, JavaScriptValue> _scriptExports = new ConcurrentDictionary<string, JavaScriptValue>();
             private readonly ConcurrentDictionary<JToken, JavaScriptValue> _globals = new ConcurrentDictionary<JToken, JavaScriptValue>(ReferenceEqualsComparer.Default);
 
-            public SingleThreadJsEngine()
-            {
-                _context = CreateContext();
-            }
-
             public JToken Run(string scriptPath, string methodName, JToken? global, JToken arg)
             {
                 Native.ThrowIfError(Native.JsSetCurrentContext(_context));
@@ -59,14 +54,14 @@ namespace Microsoft.Docs.Build
                 {
                     var exports = GetScriptExports(scriptPath);
                     var method = exports.GetProperty(JavaScriptPropertyId.FromString(methodName));
-                    var input = ToJavaScriptValue(arg);
+                    var jsArg = ToJavaScriptValue(arg);
 
                     if (global != null)
                     {
-                        input.SetProperty(JavaScriptPropertyId.FromString("__global"), GetGlobal(global), useStrictRules: true);
+                        jsArg.SetProperty(JavaScriptPropertyId.FromString("__global"), GetGlobal(global), useStrictRules: true);
                     }
 
-                    var output = method.CallFunction(JavaScriptValue.Undefined, input);
+                    var output = method.CallFunction(JavaScriptValue.Undefined, jsArg);
 
                     return ToJToken(output);
                 }
@@ -98,8 +93,6 @@ namespace Microsoft.Docs.Build
                     try
                     {
                         var exports = Run(key);
-
-                        // Avoid exports been GC'ed by javascript garbage collector.
                         exports.AddRef();
                         return exports;
                     }
@@ -115,8 +108,6 @@ namespace Microsoft.Docs.Build
                 return _globals.GetOrAdd(global, key =>
                 {
                     var global = ToJavaScriptValue(key);
-
-                    // Avoid exports been GCed by javascript garbage collector.
                     global.AddRef();
                     return global;
                 });

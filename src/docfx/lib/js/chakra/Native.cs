@@ -246,6 +246,9 @@ namespace ChakraHost.Hosting
         internal static extern JavaScriptErrorCode JsCreateObject(out JavaScriptValue obj);
 
         [DllImport(DllName)]
+        internal static extern JavaScriptErrorCode JsCloneObject(JavaScriptValue source, out JavaScriptValue clonedObject);
+
+        [DllImport(DllName)]
         internal static extern JavaScriptErrorCode JsCreateExternalObject(IntPtr data, JavaScriptObjectFinalizeCallback finalizeCallback, out JavaScriptValue obj);
 
         [DllImport(DllName)]

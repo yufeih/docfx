@@ -23,7 +23,7 @@ namespace Microsoft.Docs.Build
 
         public void Run()
         {
-            PreProcessMonoDocXml();
+            // PreProcessMonoDocXml();
         }
 
         private void PreProcessMonoDocXml()
