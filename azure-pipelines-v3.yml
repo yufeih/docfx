@@ -6,86 +6,80 @@ trigger:
     - v3-release
 pr:
 - v3
+
 variables:
   dotnetVersion: 3.1.300
   runCodesignValidationInjection: false
 
 jobs:
-
-# Test pull requests on linux and mac
-- job: LinuxBuild
+- job: Test
+  strategy:
+    matrix:
+      windows:
+        vmImage: windows-latest
+      macOS:
+        vmImage: macOS-latest
+      linux:
+        vmImage: unbuntu-latest
   pool:
-    vmImage: 'ubuntu-latest'
+    vmImage: $(vmImage)
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
 
-  # Install .NET Core sdk
   - task: UseDotNet@2
     displayName: 'Install .NET Core sdk $(dotnetVersion)'
     inputs:
       packageType: sdk
       version: $(dotnetVersion)
 
-  - bash: ./build.sh
+  - task: DotNetCoreCLI@2
+    displayName: 'Run Tests'
+    inputs:
+      command: test
+      configuration: Release
+      publishTestResults: true
     env:
       AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
       DOCS_GITHUB_TOKEN: $(DOCS_GITHUB_TOKEN)
       DOCS_OPS_TOKEN: $(DOCS_OPS_TOKEN)
       MICROSOFT_GRAPH_CLIENT_SECRET: MICROSOFT_GRAPH_CLIENT_SECRET
 
-- job: MacBuild
-  pool:
-    vmImage: 'macOS-latest'
-  condition: eq(variables['Build.Reason'], 'PullRequest')
-  steps:
+  - script: 'bash <(curl -s https://codecov.io/bash)'
+    displayName: 'Upload to codecov.io'
 
-  # Install .NET Core sdk
-  - task: UseDotNet@2
-    displayName: 'Install .NET Core sdk $(dotnetVersion)'
+  - task: DotNetCoreCLI@2
+    displayName: 'Build Regression Test'
     inputs:
-      packageType: sdk
-      version: $(dotnetVersion)
+      command: publish
+      projects: test/docfx.RegressionTest
+      configuration: Release
 
-  - bash: ./build.sh
-    env:
-      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
-      DOCS_GITHUB_TOKEN: $(DOCS_GITHUB_TOKEN)
-      DOCS_OPS_TOKEN: $(DOCS_OPS_TOKEN)
-      MICROSOFT_GRAPH_CLIENT_SECRET: MICROSOFT_GRAPH_CLIENT_SECRET
-
-# Test and deploy on windows
-- job: WindowsBuild
-  pool:
-    vmImage: 'windows-latest'
-  steps:
-
-  # Install .NET Core sdk
-  - task: UseDotNet@2
-    displayName: 'Install .NET Core sdk $(dotnetVersion)'
-    inputs:
-      packageType: sdk
-      version: $(dotnetVersion)
-
-  # Build and test
-  - powershell: ./build.ps1
-    displayName: Build
-    env:
-      AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
-      DOCS_GITHUB_TOKEN: $(DOCS_GITHUB_TOKEN)
-      DOCS_OPS_TOKEN: $(DOCS_OPS_TOKEN)
-      CODECOV_TOKEN: $(CODECOV_TOKEN)
-
-  # Build RegressionTest into Artifact 
-  - powershell: |
-      $regressionTestDir = './drop/RegressionTest'
-      Remove-Item $regressionTestDir -Force -Recurse -ErrorAction Ignore
-      dotnet build ./test/docfx.RegressionTest -c Release -r win7-x64 -o $regressionTestDir/bin
-    displayName: Build RegressionTest into Artifact 
-
-  # Publish RegressionTest binary
   - publish: ./drop/RegressionTest/bin
-    displayName: Publish RegressionTest binary
+    displayName: Publish Regression Test
     artifact: RegressionTest
+
+- job: Publish
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+
+  - task: UseDotNet@2
+    displayName: 'Install .NET Core sdk $(dotnetVersion)'
+    inputs:
+      packageType: sdk
+      version: $(dotnetVersion)
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Pack NuGet packages'
+    inputs:
+      command: pack
+      configuration: Release
+
+  - task: DotNetCoreCLI@2
+    displayName: 'Pack Binary packages'
+    inputs:
+      projects: src/docfx
+      command: publish
+      configuration: Release
+      zipAfterPublish: true
 
   # Push to azure devops feed
   - task: NuGetCommand@2
