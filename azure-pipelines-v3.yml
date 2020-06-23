@@ -73,6 +73,11 @@ jobs:
       AZURE_DEVOPS_TOKEN: $(AZURE_DEVOPS_TOKEN)
       DOCS_GITHUB_TOKEN: $(DOCS_GITHUB_TOKEN)
       DOCS_OPS_TOKEN: $(DOCS_OPS_TOKEN)
+  
+  # Publish test results
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFiles: '**/*.trx'
 
   # Upload code coverage to codecov.io
   - bash: |
