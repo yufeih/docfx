@@ -702,7 +702,7 @@ outputs:
     }
   c.json:
   .errors.log: |
-    {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"a/original.xml"}
+    {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema ''.","file":"a/original.xml"}
   .dependencymap.json: |
     {"dependencies":{"a/b.original.xml":[{"source":"a/original.xml","type":"file"}]}}
   .publish.json: |
@@ -739,7 +739,7 @@ outputs:
   b.json:
   c.json:
   .errors.log: |
-    {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"a/original.xml"}
+    {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema ''.","file":"a/original.xml"}
   .dependencymap.json: |
     {"dependencies":undefined}
 ---
@@ -767,7 +767,7 @@ repos:
         c.md:
 outputs:
   .errors.log: |
-    {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"a/original.xml"}
+    {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema ''.","file":"a/original.xml"}
   b.mta.json:
   b.raw.page.json:
   c.mta.json:

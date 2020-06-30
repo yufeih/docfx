@@ -37,7 +37,7 @@ namespace Microsoft.Docs.Build
             errors.AddRange(outputErrors);
             context.ErrorLog.Write(errors);
 
-            if (!context.ErrorLog.HasError(file.FilePath) && !context.Config.DryRun)
+            if (context.PublishModelBuilder.AddPublishItem(file.FilePath, metadata, outputPath) && !context.Config.DryRun)
             {
                 if (context.Config.OutputType == OutputType.Json)
                 {
@@ -58,8 +58,6 @@ namespace Microsoft.Docs.Build
                     context.Output.WriteJson(metadataPath, metadata);
                 }
             }
-
-            context.PublishModelBuilder.SetPublishItem(file.FilePath, metadata, outputPath);
         }
 
         private static (List<Error> errors, object output, JObject metadata) CreatePageOutput(

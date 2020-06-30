@@ -41,9 +41,9 @@ namespace Microsoft.Docs.Build
             _sourceMap = sourceMap;
         }
 
-        public void SetPublishItem(FilePath file, JObject? metadata, string? outputPath)
+        public bool AddPublishItem(FilePath file, JObject? metadata, string? outputPath)
         {
-            _buildOutput.TryAdd(file, (metadata, outputPath));
+            return _buildOutput.TryAdd(file, (metadata, outputPath));
         }
 
         public (PublishModel, Dictionary<FilePath, PublishItem>) Build()

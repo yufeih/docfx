@@ -24,12 +24,10 @@ namespace Microsoft.Docs.Build
                 copy = false;
             }
 
-            if (copy && !context.Config.DryRun)
+            if (context.PublishModelBuilder.AddPublishItem(file.FilePath, null, outputPath) && copy && !context.Config.DryRun)
             {
                 context.Output.Copy(outputPath, file.FilePath);
             }
-
-            context.PublishModelBuilder.SetPublishItem(file.FilePath, null, outputPath);
         }
     }
 }

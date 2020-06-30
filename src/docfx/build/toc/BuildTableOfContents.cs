@@ -43,7 +43,7 @@ namespace Microsoft.Docs.Build
 
             context.ErrorLog.Write(errors);
 
-            if (!context.ErrorLog.HasError(file.FilePath) && !context.Config.DryRun)
+            if (context.PublishModelBuilder.AddPublishItem(file.FilePath, null, outputPath) && !context.Config.DryRun)
             {
                 if (context.Config.OutputType == OutputType.Html)
                 {
@@ -61,8 +61,6 @@ namespace Microsoft.Docs.Build
                     context.Output.WriteJson(outputPath, output);
                 }
             }
-
-            context.PublishModelBuilder.SetPublishItem(file.FilePath, null, context.DocumentProvider.GetOutputPath(file.FilePath));
         }
     }
 }

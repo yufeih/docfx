@@ -65,9 +65,7 @@ namespace Microsoft.Docs.Build
             return result;
         }
 
-        private void Load(
-            ListBuilder<InternalXrefSpec> xrefs,
-            FilePath path)
+        private void Load(ListBuilder<InternalXrefSpec> xrefs, FilePath path)
         {
             var file = _documentProvider.GetDocument(path);
             if (file.ContentType != ContentType.Page)

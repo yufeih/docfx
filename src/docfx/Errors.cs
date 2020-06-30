@@ -189,9 +189,9 @@ namespace Microsoft.Docs.Build
             ///   - forgot to define schema in schema document(yml)
             ///   - defined a an unknown schema type(other than conceptual, contextObject, landingData)
             /// </summary>
-            /// Behavior: ❌ Message: ✔️
+            /// Behavior: ✔️ Message: ✔️
             public static Error SchemaNotFound(SourceInfo<string?> source)
-                => new Error(ErrorLevel.Error, "schema-not-found", $"Unknown schema '{source}'.", source);
+                => new Error(ErrorLevel.Warning, "schema-not-found", $"Unknown schema '{source}'.", source);
         }
 
         public static class Config

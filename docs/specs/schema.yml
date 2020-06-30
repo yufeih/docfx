@@ -30,7 +30,7 @@ outputs:
       "metadata": { "key": "value" }
     }
 ---
-# Throw error when schema is not specified
+# Report warning when schema is not specified
 inputs:
   docfx.yml:
   docs/a.yml: |
@@ -42,8 +42,8 @@ inputs:
     }
 outputs:
   .errors.log: |
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"docs/a.yml","line":1,"column":1}
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"docs/b.json","line":1,"column":1}
+   {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema ''.","file":"docs/a.yml","line":1,"column":1}
+   {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema ''.","file":"docs/b.json","line":1,"column":1}
 ---
 # Fallback to documentType when yaml mime is YamlDocument
 inputs:
@@ -58,7 +58,7 @@ outputs:
       "title": "my title"
     }
 ---
-# Throw error when defined schema is not found
+# Report warning when defined schema is not found
 inputs:
   docfx.yml:
   docs/a.yml: |
@@ -72,9 +72,9 @@ inputs:
     { "$schema": "https://raw.githubusercontent.com/dotnet/docfx/v3/schemas/SchemaNotExisting.json"}
 outputs:
   .errors.log: |
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema 'SchemaNotExisting'.","file":"docs/a.yml","line":1,"column":1}
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema 'SchemaNotExisting'.","file":"docs/b.json","line":2,"column":95}
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema 'SchemaNotExisting'.","file":"docs/c.json","line":1,"column":95}
+   {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema 'SchemaNotExisting'.","file":"docs/a.yml","line":1,"column":1}
+   {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema 'SchemaNotExisting'.","file":"docs/b.json","line":2,"column":95}
+   {"message_severity":"warning","code":"schema-not-found","message":"Unknown schema 'SchemaNotExisting'.","file":"docs/c.json","line":1,"column":95}
 ---
 # Support schema documents with Href content
 inputs:

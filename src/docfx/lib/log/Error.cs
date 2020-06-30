@@ -88,9 +88,9 @@ namespace Microsoft.Docs.Build
                 : JsonUtility.Serialize(new { message_severity, log_item_type, Code, Message, file });
         }
 
-        public DocfxException ToException(Exception? innerException = null, bool isError = true)
+        public DocfxException ToException(Exception? innerException = null, bool forceError = true)
         {
-            return new DocfxException(this, innerException, isError ? (ErrorLevel?)ErrorLevel.Error : null);
+            return new DocfxException(this, innerException, forceError ? (ErrorLevel?)ErrorLevel.Error : null);
         }
 
         private class EqualityComparer : IEqualityComparer<Error>
