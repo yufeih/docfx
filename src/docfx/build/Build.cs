@@ -20,22 +20,18 @@ namespace Microsoft.Docs.Build
             }
 
             var hasError = false;
-            var restoreFetchOptions = options.NoCache ? FetchOptions.Latest : FetchOptions.UseCache;
-            var buildFetchOptions = options.NoRestore ? FetchOptions.NoFetch : FetchOptions.UseCache;
+            var fetchOptions = options.NoRestore
+                ? FetchOptions.NoFetch
+                : (options.NoCache ? FetchOptions.Latest : FetchOptions.UseCache);
 
             Parallel.ForEach(docsets, docset =>
             {
-                if (!options.NoRestore && Restore.RestoreDocset(docset.docsetPath, docset.outputPath, options, restoreFetchOptions))
-                {
-                    hasError = true;
-                    return;
-                }
-
-                if (BuildDocset(docset.docsetPath, docset.outputPath, options, buildFetchOptions))
+                if (BuildDocset(docset.docsetPath, docset.outputPath, options, fetchOptions))
                 {
                     hasError = true;
                 }
             });
+
             return hasError ? 1 : 0;
         }
 
@@ -49,18 +45,21 @@ namespace Microsoft.Docs.Build
             try
             {
                 var configLoader = new ConfigLoader(errorLog);
-                var (errors, config, buildOptions, packageResolver, fileResolver) =
-                    configLoader.Load(disposables, docsetPath, outputPath, options, fetchOptions);
+                var (errors, config, buildOptions, packageResolver, fileResolver) = configLoader.Load(
+                    disposables, docsetPath, outputPath, options, fetchOptions);
+
                 if (errorLog.Write(errors))
                 {
                     return true;
                 }
 
-                new OpsPreProcessor(config, errorLog, buildOptions).Run();
-                var sourceMap = new SourceMap(new PathString(buildOptions.DocsetPath), config, fileResolver);
-                errorLog.Configure(config, buildOptions.OutputPath, sourceMap);
-                using var context = new Context(errorLog, config, buildOptions, packageResolver, fileResolver, sourceMap);
-                Run(context);
+                if (!options.NoRestore)
+                {
+                    Restore.RestoreDocset(errorLog, config, buildOptions, packageResolver, fileResolver);
+                }
+
+                BuildDocset(errorLog, config, buildOptions, packageResolver, fileResolver);
+
                 return errorLog.ErrorCount > 0;
             }
             catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
@@ -74,6 +73,16 @@ namespace Microsoft.Docs.Build
                 Log.Important($"Build done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
                 errorLog.PrintSummary();
             }
+        }
+
+        private static void BuildDocset(ErrorLog errorLog, Config config, BuildOptions buildOptions, PackageResolver packageResolver, FileResolver fileResolver)
+        {
+            new OpsPreProcessor(config, errorLog, buildOptions).Run();
+            var sourceMap = new SourceMap(new PathString(buildOptions.DocsetPath), config, fileResolver);
+            errorLog.Configure(config, buildOptions.OutputPath, sourceMap);
+
+            using var context = new Context(errorLog, config, buildOptions, packageResolver, fileResolver, sourceMap);
+            Run(context);
         }
 
         private static void Run(Context context)

@@ -53,9 +53,7 @@ namespace Microsoft.Docs.Build
                 errorLog.Configure(config, buildOptions.OutputPath, null);
 
                 // download dependencies to disk
-                Parallel.Invoke(
-                    () => RestoreFiles(errorLog, config, fileResolver),
-                    () => RestorePackages(errorLog, buildOptions, config, packageResolver));
+                RestoreDocset(errorLog, config, buildOptions, packageResolver, fileResolver);
                 return errorLog.ErrorCount > 0;
             }
             catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
@@ -69,6 +67,13 @@ namespace Microsoft.Docs.Build
                 Log.Important($"Restore done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
                 errorLog.PrintSummary();
             }
+        }
+
+        public static void RestoreDocset(ErrorLog errorLog, Config config, BuildOptions buildOptions, PackageResolver packageResolver, FileResolver fileResolver)
+        {
+            Parallel.Invoke(
+                () => RestoreFiles(errorLog, config, fileResolver),
+                () => RestorePackages(errorLog, buildOptions, config, packageResolver));
         }
 
         private static void RestoreFiles(ErrorLog errorLog, Config config, FileResolver fileResolver)
