@@ -95,14 +95,13 @@ namespace Microsoft.Docs.Build
 
         public override string ToString() => ToString(Level, null);
 
-        public string ToString(ErrorLevel level, SourceMap? sourceMap)
+        public string ToString(ErrorLevel level, PathString? originalPath)
         {
             var message_severity = level;
-            int line = Line;
-            int end_line = EndLine;
-            int column = Column;
-            int end_column = EndColumn;
-            var originalPath = FilePath is null ? null : sourceMap?.GetOriginalFilePath(FilePath);
+            var line = Line;
+            var end_line = EndLine;
+            var column = Column;
+            var end_column = EndColumn;
             var file = originalPath == null ? FilePath?.Path : originalPath;
             var date_time = DateTime.UtcNow;
             var log_item_type = "user";

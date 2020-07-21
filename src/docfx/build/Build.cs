@@ -13,72 +13,61 @@ namespace Microsoft.Docs.Build
     {
         public static int Run(string workingDirectory, CommandLineOptions options)
         {
-            var (errors, docsets) = ConfigLoader.FindDocsets(workingDirectory, options);
-            ErrorLog.PrintErrors(errors);
+            using var errorWriter = new ErrorWriter(options.Log);
+            var errors = new HasErrorHelper(errorWriter);
+
+            var docsets = ConfigLoader.FindDocsets(errors, workingDirectory, options);
             if (docsets.Length == 0)
             {
-                ErrorLog.PrintError(Errors.Config.ConfigNotFound(workingDirectory));
+                errors.Add(Errors.Config.ConfigNotFound(workingDirectory));
                 return 1;
             }
 
-            var hasError = false;
-            var restoreFetchOptions = options.NoCache ? FetchOptions.Latest : FetchOptions.UseCache;
-            var buildFetchOptions = options.NoRestore ? FetchOptions.NoFetch : FetchOptions.UseCache;
-
-            Parallel.ForEach(docsets, docset =>
+            ParallelUtility.ForEach(errors, docsets, docset =>
             {
-                if (!options.NoRestore && Restore.RestoreDocset(docset.docsetPath, docset.outputPath, options, restoreFetchOptions))
-                {
-                    hasError = true;
-                    return;
-                }
-
-                if (BuildDocset(docset.docsetPath, docset.outputPath, options, buildFetchOptions))
-                {
-                    hasError = true;
-                }
+                BuildDocset(errors, docset.docsetPath, docset.outputPath, options);
             });
-            return hasError ? 1 : 0;
+
+            return errors.HasError ? 1 : 0;
         }
 
-        private static bool BuildDocset(string docsetPath, string? outputPath, CommandLineOptions options, FetchOptions fetchOptions)
+        private static void BuildDocset(IErrorBuilder errorBuilder, string docsetPath, string? outputPath, CommandLineOptions options)
         {
             var stopwatch = Stopwatch.StartNew();
-
-            using var errorLog = new ErrorLog(outputPath);
+            var errors = new HasErrorHelper(errorBuilder);
             using var disposables = new DisposableCollector();
 
-            try
+            if (!options.NoRestore)
             {
-                var configLoader = new ConfigLoader(errorLog);
-                var (errors, config, buildOptions, packageResolver, fileResolver) =
-                    configLoader.Load(disposables, docsetPath, outputPath, options, fetchOptions);
-                if (errorLog.Write(errors))
+                Restore.RestoreDocset(errors, docsetPath, outputPath, options, options.NoCache ? FetchOptions.Latest : FetchOptions.UseCache);
+                if (errors.HasError)
                 {
-                    return true;
+                    return;
                 }
+            }
 
-                new OpsPreProcessor(config, errorLog, buildOptions).Run();
-                var sourceMap = new SourceMap(new PathString(buildOptions.DocsetPath), config, fileResolver);
+            var (config, buildOptions, packageResolver, fileResolver) = ConfigLoader.Load(
+                errors, disposables, docsetPath, outputPath, options, options.NoRestore ? FetchOptions.NoFetch : FetchOptions.UseCache);
 
-                var validationRules = GetContentValidationRules(config, fileResolver);
-                errorLog.Configure(config, buildOptions.OutputPath, sourceMap, validationRules);
-                using var context = new Context(errorLog, config, buildOptions, packageResolver, fileResolver, sourceMap);
-                Run(context);
-                new OpsPostProcessor(config, errorLog, buildOptions).Run();
-                return errorLog.ErrorCount > 0;
-            }
-            catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
+            if (errors.HasError)
             {
-                errorLog.Write(dex);
-                return errorLog.ErrorCount > 0;
+                return;
             }
-            finally
-            {
-                Telemetry.TrackOperationTime("build", stopwatch.Elapsed);
-                Log.Important($"Build done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
-                errorLog.PrintSummary();
-            }
+
+            new OpsPreProcessor(config, errors, buildOptions).Run();
+
+            var sourceMap = new SourceMap(new PathString(buildOptions.DocsetPath), config, fileResolver);
+            var validationRules = GetContentValidationRules(config, fileResolver);
+            var errorLog = new ErrorLog(errors, config, sourceMap, validationRules);
+
+            using var context = new Context(errorLog, config, buildOptions, packageResolver, fileResolver, sourceMap);
+            Run(context);
+
+            new OpsPostProcessor(config, errors, buildOptions).Run();
+
+            Telemetry.TrackOperationTime("build", stopwatch.Elapsed);
+            Log.Important($"Build done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
+            errors.PrintSummary();
         }
 
         private static void Run(Context context)

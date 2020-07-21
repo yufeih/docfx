@@ -29,7 +29,13 @@ namespace Microsoft.Docs.Build
 
         public static void Update(int done, int total)
         {
-            var scope = t_scope.Value?.Peek();
+            var stack = t_scope.Value;
+            if (stack is null || stack.IsEmpty)
+            {
+                return;
+            }
+
+            var scope = stack.Peek();
             if (scope is null)
             {
                 return;

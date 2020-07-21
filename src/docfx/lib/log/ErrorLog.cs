@@ -1,89 +1,37 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Linq;
 using Microsoft.Docs.Validation;
 
 namespace Microsoft.Docs.Build
 {
-    internal sealed class ErrorLog : IDisposable
+    internal sealed class ErrorLog : IErrorBuilder
     {
-        private readonly object _outputLock = new object();
+        private readonly IErrorBuilder _builder;
+        private readonly Config _config;
+        private readonly SourceMap? _sourceMap;
+        private readonly Dictionary<string, CustomRule> _customRules = new Dictionary<string, CustomRule>();
 
-        private Lazy<TextWriter> _output;
-        private Config? _config;
-        private SourceMap? _sourceMap;
-        private Dictionary<string, CustomRule> _customRules = new Dictionary<string, CustomRule>();
-
-        private ErrorSink _errorSink = new ErrorSink();
-        private ConcurrentDictionary<FilePath, ErrorSink> _fileSink = new ConcurrentDictionary<FilePath, ErrorSink>();
-
-        public int ErrorCount => _errorSink.ErrorCount + _fileSink.Values.Sum(sink => sink.ErrorCount);
-
-        public int WarningCount => _errorSink.WarningCount + _fileSink.Values.Sum(sink => sink.WarningCount);
-
-        public int SuggestionCount => _errorSink.SuggestionCount + _fileSink.Values.Sum(sink => sink.SuggestionCount);
+        private readonly ErrorSink _errorSink = new ErrorSink();
+        private readonly ConcurrentDictionary<FilePath, ErrorSink> _fileSink = new ConcurrentDictionary<FilePath, ErrorSink>();
 
         public bool HasError(FilePath file) => _fileSink.TryGetValue(file, out var sink) && sink.ErrorCount > 0;
 
-        public ErrorLog(string? outputPath = null)
+        public ErrorLog(IErrorBuilder builder, Config config, SourceMap? sourceMap = null, Dictionary<string, ValidationRules>? contentValidationRules = null)
         {
-            _output = new Lazy<TextWriter>(() => outputPath is null ? TextWriter.Null : CreateOutput(outputPath));
-        }
-
-        public void Configure(Config config, string outputPath, SourceMap? sourceMap, Dictionary<string, ValidationRules>? contentValidationRules = null)
-        {
+            _builder = builder;
             _config = config;
             _sourceMap = sourceMap;
             _customRules = MergeCustomRules(config, contentValidationRules);
-
-            lock (_outputLock)
-            {
-                if (_output.IsValueCreated)
-                {
-                    _output.Value.Flush();
-                    _output.Value.Dispose();
-                }
-                _output = new Lazy<TextWriter>(() => CreateOutput(outputPath));
-            }
         }
 
-        public bool Write(IEnumerable<Error> errors)
-        {
-            var hasErrors = false;
-            foreach (var error in errors)
-            {
-                if (Write(error))
-                {
-                    hasErrors = true;
-                }
-            }
-            return hasErrors;
-        }
-
-        public bool Write(IEnumerable<DocfxException> exceptions)
-        {
-            var hasErrors = false;
-            foreach (var exception in exceptions)
-            {
-                Log.Write(exception);
-                if (Write(exception.Error, exception.OverwriteLevel))
-                {
-                    hasErrors = true;
-                }
-            }
-            return hasErrors;
-        }
-
-        public bool Write(Error error, ErrorLevel? overwriteLevel = null)
+        public override void Add(Error error, ErrorLevel? overwriteLevel = null, PathString? unused = null)
         {
             var config = _config;
-            if (config != null && _customRules.TryGetValue(error.Code, out var customRule))
+            if (_customRules.TryGetValue(error.Code, out var customRule))
             {
                 error = error.WithCustomRule(customRule);
             }
@@ -91,29 +39,30 @@ namespace Microsoft.Docs.Build
             var level = overwriteLevel ?? error.Level;
             if (level == ErrorLevel.Off)
             {
-                return false;
+                return;
             }
 
-            if (config != null && config.WarningsAsErrors && level == ErrorLevel.Warning)
+            if (config.WarningsAsErrors && level == ErrorLevel.Warning)
             {
                 level = ErrorLevel.Error;
             }
 
-            if (config != null && error.FilePath != null && error.FilePath.Origin == FileOrigin.Fallback)
+            if (error.FilePath != null && error.FilePath.Origin == FileOrigin.Fallback)
             {
                 if (level == ErrorLevel.Error)
                 {
-                    return Write(Errors.Logging.FallbackError(config.DefaultLocale));
+                    _builder.Add(Errors.Logging.FallbackError(config.DefaultLocale));
+                    return;
                 }
-                return false;
             }
 
             var errorSink = error.FilePath is null ? _errorSink : _fileSink.GetOrAdd(error.FilePath, _ => new ErrorSink());
+            var originalPath = error.FilePath is null ? null : _sourceMap?.GetOriginalFilePath(error.FilePath);
 
             switch (errorSink.Add(error.FilePath is null ? null : config, error, level))
             {
                 case ErrorSinkResult.Ok:
-                    WriteCore(error, level);
+                    _builder.Add(error, level, originalPath);
                     break;
 
                 case ErrorSinkResult.Exceed when error.FilePath != null && config != null:
@@ -125,104 +74,14 @@ namespace Microsoft.Docs.Build
                         ErrorLevel.Info => config.MaxFileInfos,
                         _ => 0,
                     };
-                    WriteCore(Errors.Logging.ExceedMaxFileErrors(maxAllowed, level, error.FilePath), ErrorLevel.Info);
+                    _builder.Add(Errors.Logging.ExceedMaxFileErrors(maxAllowed, level, error.FilePath), ErrorLevel.Info, originalPath);
                     break;
             }
-
-            return level == ErrorLevel.Error;
         }
 
-        [SuppressMessage("Reliability", "CA2002", Justification = "Lock Console.Out")]
-        public void PrintSummary()
+        private Dictionary<string, CustomRule> MergeCustomRules(Config config, Dictionary<string, ValidationRules>? validationRules)
         {
-            lock (Console.Out)
-            {
-                if (ErrorCount > 0 || WarningCount > 0 || SuggestionCount > 0)
-                {
-                    Console.ForegroundColor = ErrorCount > 0 ? ConsoleColor.Red
-                                            : WarningCount > 0 ? ConsoleColor.Yellow
-                                            : ConsoleColor.Magenta;
-                    Console.WriteLine();
-                    Console.WriteLine($"  {ErrorCount} Error(s), {WarningCount} Warning(s), {SuggestionCount} Suggestion(s)");
-                }
-
-                Console.ResetColor();
-            }
-        }
-
-        [SuppressMessage("Reliability", "CA2002", Justification = "Lock Console.Out")]
-        public static void PrintError(Error error, ErrorLevel? level = null)
-        {
-            lock (Console.Out)
-            {
-                var errorLevel = level ?? error.Level;
-                var output = errorLevel == ErrorLevel.Error ? Console.Error : Console.Out;
-                Console.ForegroundColor = GetColor(errorLevel);
-                output.Write(error.Code + " ");
-                Console.ResetColor();
-                output.WriteLine($"./{error.FilePath}({error.Line},{error.Column}): {error.Message}");
-            }
-        }
-
-        public static void PrintErrors(List<Error> errors)
-        {
-            foreach (var error in errors)
-            {
-                PrintError(error);
-            }
-        }
-
-        public void Dispose()
-        {
-            lock (_outputLock)
-            {
-                if (_output.IsValueCreated)
-                {
-                    _output.Value.Dispose();
-                }
-            }
-        }
-
-        private void WriteCore(Error error, ErrorLevel level)
-        {
-            Telemetry.TrackErrorCount(error.Code, level, error.Name);
-
-            if (_output != null)
-            {
-                lock (_outputLock)
-                {
-                    _output.Value.WriteLine(error.ToString(level, _sourceMap));
-                }
-            }
-
-            PrintError(error, level);
-        }
-
-        private TextWriter CreateOutput(string outputPath)
-        {
-            // add default build log file output path
-            var outputFilePath = Path.GetFullPath(Path.Combine(outputPath, ".errors.log"));
-
-            Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath));
-
-            return File.AppendText(outputFilePath);
-        }
-
-        private static ConsoleColor GetColor(ErrorLevel level)
-        {
-            return level switch
-            {
-                ErrorLevel.Error => ConsoleColor.Red,
-                ErrorLevel.Warning => ConsoleColor.Yellow,
-                ErrorLevel.Suggestion => ConsoleColor.Magenta,
-                ErrorLevel.Info => ConsoleColor.DarkGray,
-                _ => ConsoleColor.DarkGray,
-            };
-        }
-
-        private Dictionary<string, CustomRule> MergeCustomRules(Config? config, Dictionary<string, ValidationRules>? validationRules)
-        {
-            var customRules = config != null ? new Dictionary<string, CustomRule>(config.CustomRules) : new Dictionary<string, CustomRule>();
+            var customRules = new Dictionary<string, CustomRule>(config.CustomRules);
 
             if (validationRules == null)
             {
@@ -231,7 +90,7 @@ namespace Microsoft.Docs.Build
 
             foreach (var validationRule in validationRules.SelectMany(rules => rules.Value.Rules).Where(rule => rule.PullRequestOnly))
             {
-                if (config != null && customRules.TryGetValue(validationRule.Code, out var customRule))
+                if (customRules.TryGetValue(validationRule.Code, out var customRule))
                 {
                     customRules[validationRule.Code] = new CustomRule(
                             customRule.Severity,

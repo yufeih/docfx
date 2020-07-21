@@ -17,6 +17,7 @@ namespace Microsoft.Docs.Build
         public bool NoCache;
         public bool NoRestore;
         public string? Template;
+        public string? Log;
 
         public JObject? StdinConfig;
 

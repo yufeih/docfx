@@ -13,70 +13,55 @@ namespace Microsoft.Docs.Build
     {
         public static int Run(string workingDirectory, CommandLineOptions options)
         {
-            var (errors, docsets) = ConfigLoader.FindDocsets(workingDirectory, options);
-            ErrorLog.PrintErrors(errors);
+            using var errorWriter = new ErrorWriter(options.Log);
+            var errors = new HasErrorHelper(errorWriter);
+
+            var docsets = ConfigLoader.FindDocsets(errors, workingDirectory, options);
             if (docsets.Length == 0)
             {
-                ErrorLog.PrintError(Errors.Config.ConfigNotFound(workingDirectory));
+                errors.Add(Errors.Config.ConfigNotFound(workingDirectory));
                 return 1;
             }
 
-            var hasError = false;
-            Parallel.ForEach(docsets, docset =>
+            ParallelUtility.ForEach(errors, docsets, docset =>
             {
-                if (RestoreDocset(docset.docsetPath, docset.outputPath, options, FetchOptions.Latest))
-                {
-                    hasError = true;
-                }
+                RestoreDocset(errors, docset.docsetPath, docset.outputPath, options, FetchOptions.Latest);
             });
-            return hasError ? 1 : 0;
+
+            return errors.HasError ? 1 : 0;
         }
 
-        public static bool RestoreDocset(string docsetPath, string? outputPath, CommandLineOptions options, FetchOptions fetchOptions)
+        public static void RestoreDocset(
+            IErrorBuilder errorBuilder, string docsetPath, string? outputPath, CommandLineOptions options, FetchOptions fetchOptions)
         {
             var stopwatch = Stopwatch.StartNew();
-
+            var errors = new HasErrorHelper(errorBuilder);
             using var disposables = new DisposableCollector();
-            using var errorLog = new ErrorLog(outputPath);
 
-            try
-            {
-                // load configuration from current entry or fallback repository
-                var configLoader = new ConfigLoader(errorLog);
-                var (errors, config, buildOptions, packageResolver, fileResolver) =
-                    configLoader.Load(disposables, docsetPath, outputPath, options, fetchOptions);
-                if (errorLog.Write(errors))
-                {
-                    return true;
-                }
+            var (config, buildOptions, packageResolver, fileResolver) = ConfigLoader.Load(
+                errors, disposables, docsetPath, outputPath, options, fetchOptions);
 
-                errorLog.Configure(config, buildOptions.OutputPath, null);
+            if (errors.HasError)
+            {
+                return;
+            }
 
-                // download dependencies to disk
-                Parallel.Invoke(
-                    () => RestoreFiles(errorLog, config, fileResolver),
-                    () => RestorePackages(errorLog, buildOptions, config, packageResolver));
-                return errorLog.ErrorCount > 0;
-            }
-            catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
-            {
-                errorLog.Write(dex);
-                return errorLog.ErrorCount > 0;
-            }
-            finally
-            {
-                Telemetry.TrackOperationTime("restore", stopwatch.Elapsed);
-                Log.Important($"Restore done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
-                errorLog.PrintSummary();
-            }
+            // download dependencies to disk
+            Parallel.Invoke(
+                () => RestoreFiles(errors, config, fileResolver),
+                () => RestorePackages(errors, buildOptions, config, packageResolver));
+
+            Telemetry.TrackOperationTime("restore", stopwatch.Elapsed);
+            Log.Important($"Restore done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
+            errors.PrintSummary();
         }
 
-        private static void RestoreFiles(ErrorLog errorLog, Config config, FileResolver fileResolver)
+        private static void RestoreFiles(IErrorBuilder errorLog, Config config, FileResolver fileResolver)
         {
             ParallelUtility.ForEach(errorLog, config.GetFileReferences(), fileResolver.Download);
         }
 
-        private static void RestorePackages(ErrorLog errorLog, BuildOptions buildOptions, Config config, PackageResolver packageResolver)
+        private static void RestorePackages(IErrorBuilder errorLog, BuildOptions buildOptions, Config config, PackageResolver packageResolver)
         {
             ParallelUtility.ForEach(
                 errorLog,

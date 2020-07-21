@@ -31,11 +31,11 @@ namespace Microsoft.Docs.Build
 
         public static readonly DocsEnvironment DocsEnvironment = GetDocsEnvironment();
         private readonly Action<HttpRequestMessage> _credentialProvider;
-        private readonly ErrorLog _errorLog;
+        private readonly IErrorBuilder _errorLog;
         private readonly HttpClient _http = new HttpClient();
         private readonly (string, Func<Uri, Task<string>>)[] _apis;
 
-        public OpsConfigAdapter(ErrorLog errorLog, Action<HttpRequestMessage> credentialProvider)
+        public OpsConfigAdapter(IErrorBuilder errorLog, Action<HttpRequestMessage> credentialProvider)
         {
             _errorLog = errorLog;
             _credentialProvider = credentialProvider;

@@ -221,9 +221,9 @@ namespace Microsoft.Docs.Build
             return filePath;
         }
 
-        private bool Write(IEnumerable<ValidationError> validationErrors)
+        private void Write(IEnumerable<ValidationError> validationErrors)
         {
-            return _errorLog.Write(validationErrors.Select(e => new Error(GetLevel(e.Severity), e.Code, e.Message, (SourceInfo?)e.SourceInfo)));
+            _errorLog.Write(validationErrors.Select(e => new Error(GetLevel(e.Severity), e.Code, e.Message, (SourceInfo?)e.SourceInfo)));
 
             static ErrorLevel GetLevel(ValidationSeverity severity) =>
                 severity switch

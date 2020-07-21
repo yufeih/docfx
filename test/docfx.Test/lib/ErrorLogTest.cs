@@ -11,8 +11,7 @@ namespace Microsoft.Docs.Build
         [Fact]
         public void DedupErrors()
         {
-            using var errorLog = new ErrorLog("DedupErrors");
-            errorLog.Configure(new Config(), ".", null);
+            var errorLog = new HasErrorHelper(new ErrorLog(new ErrorWriter("DedupErrors"), new Config()));
             errorLog.Write(new Error(ErrorLevel.Error, "an-error-code", "message 1"));
             errorLog.Write(new Error(ErrorLevel.Error, "an-error-code", "message 1"));
             errorLog.Write(new Error(ErrorLevel.Warning, "an-error-code", "message 2"));
@@ -24,9 +23,8 @@ namespace Microsoft.Docs.Build
         [Fact]
         public void MaxErrors()
         {
-            using var errorLog = new ErrorLog("MaxErrors");
+            var errorLog = new HasErrorHelper(new ErrorLog(new ErrorWriter("MaxErrors"), new Config()));
             var config = new Config();
-            errorLog.Configure(config, ".", null);
 
             var testFiles = 100;
             var testErrors = new List<Error>();

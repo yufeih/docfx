@@ -12,9 +12,9 @@ namespace Microsoft.Docs.Build
 
         private readonly Config _config;
         private readonly BuildOptions _buildOptions;
-        private readonly ErrorLog _errorLog;
+        private readonly IErrorBuilder _errorLog;
 
-        public OpsPreProcessor(Config config, ErrorLog errorLog, BuildOptions buildOptions)
+        public OpsPreProcessor(Config config, IErrorBuilder errorLog, BuildOptions buildOptions)
         {
             _config = config;
             _errorLog = errorLog;

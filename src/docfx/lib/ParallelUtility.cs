@@ -28,7 +28,7 @@ namespace Microsoft.Docs.Build
             EnsureOrdered = false,
         };
 
-        public static void ForEach<T>(ErrorLog errorLog, IEnumerable<T> source, Action<T> action)
+        public static void ForEach<T>(IErrorBuilder errorLog, IEnumerable<T> source, Action<T> action)
         {
             var done = 0;
             var total = source.Count();

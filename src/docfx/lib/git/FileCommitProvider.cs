@@ -20,7 +20,7 @@ namespace Microsoft.Docs.Build
     {
         private static readonly DictionarySlim<uint, Tree> s_emptyTree = new DictionarySlim<uint, Tree>();
 
-        private readonly ErrorLog _errorLog;
+        private readonly IErrorBuilder _errorLog;
         private readonly Repository _repository;
         private readonly Lazy<GitCommitCache> _commitCache;
 
@@ -38,7 +38,7 @@ namespace Microsoft.Docs.Build
         private int _isDisposed;
         private Task? _warmup;
 
-        public FileCommitProvider(ErrorLog errorLog, Repository repository, string cacheFilePath)
+        public FileCommitProvider(IErrorBuilder errorLog, Repository repository, string cacheFilePath)
         {
             if (git_repository_open(out _repo, repository.Path) != 0)
             {
