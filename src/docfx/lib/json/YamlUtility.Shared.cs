@@ -36,7 +36,7 @@ namespace Microsoft.Docs.Build
                 parser.Consume<DocumentEnd>();
             }
 
-            return result ?? JValue.CreateNull();
+            return result ?? JValue.Null;
         }
 
         private static JToken ToJToken(
@@ -99,7 +99,7 @@ namespace Microsoft.Docs.Build
             //    *                                               tag:yaml.org,2002:str(Default)
             if (string.IsNullOrEmpty(value) || value == "~" || value.Equals("null", StringComparison.OrdinalIgnoreCase))
             {
-                return JValue.CreateNull();
+                return JValue.Null;
             }
             if (bool.TryParse(value, out var b))
             {

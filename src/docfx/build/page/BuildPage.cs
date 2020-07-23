@@ -321,7 +321,7 @@ namespace Microsoft.Docs.Build
             }
 
             // content for *.mta.json
-            var metadata = new JObject(templateMetadata.Properties().Where(p => !p.Name.StartsWith("_")))
+            var metadata = new JObject(templateMetadata.Where(p => !p.Key.StartsWith("_")))
             {
                 ["is_dynamic_rendering"] = true,
             };

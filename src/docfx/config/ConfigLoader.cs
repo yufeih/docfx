@@ -213,8 +213,9 @@ namespace Microsoft.Docs.Build
                 let configKey = StringUtility.ToCamelCase('_', key.Substring("DOCFX_".Length))
                 let values = entry.Value?.ToString()?.Split(';', StringSplitOptions.RemoveEmptyEntries)
                 where values != null
-                let configValue = values.Length == 1 ? (object)values[0] : values
-                select new JProperty(configKey, configValue));
+                select new KeyValuePair<string, JToken>(
+                    configKey,
+                    values.Length == 1 ? (JToken)values[0] : new JArray(values.Select(item => new JValue(item)))));
         }
     }
 }

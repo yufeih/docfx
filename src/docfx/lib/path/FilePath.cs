@@ -9,7 +9,7 @@ namespace Microsoft.Docs.Build
     /// <summary>
     /// Represents a serializable machine independent file identifier.
     /// </summary>
-    internal class FilePath : IEquatable<FilePath>, IComparable<FilePath>
+    public class FilePath : IEquatable<FilePath>, IComparable<FilePath>
     {
         private readonly int _hashCode;
 

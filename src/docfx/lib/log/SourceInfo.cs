@@ -5,7 +5,7 @@ using System;
 
 namespace Microsoft.Docs.Build
 {
-    internal class SourceInfo : IEquatable<SourceInfo>, IComparable<SourceInfo>
+    public class SourceInfo : IEquatable<SourceInfo>, IComparable<SourceInfo>
     {
         /// <summary>
         /// Path to the source file.

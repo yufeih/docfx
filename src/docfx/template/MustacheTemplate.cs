@@ -164,7 +164,7 @@ namespace Microsoft.Docs.Build
             return token switch
             {
                 JObject _ when _global != null && key == "__global" => _global,
-                JObject obj => obj.GetValue(key, StringComparison.Ordinal),
+                JObject obj => obj[key],
                 JArray array when int.TryParse(key, out var index) && index >= 0 && index < array.Count => array[index],
                 JValue value when _jsonSchemaTransformer != null && file != null && value.Value is string str && key == "__xrefspec"
                     => _jsonSchemaTransformer.Value.GetMustacheXrefSpec(file, str),

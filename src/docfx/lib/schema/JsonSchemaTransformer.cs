@@ -120,7 +120,7 @@ namespace Microsoft.Docs.Build
 
                 if (!obj.TryGetValue(xrefProperty, out var value))
                 {
-                    xref.XrefProperties[xrefProperty] = new Lazy<JToken>(() => JValue.CreateNull());
+                    xref.XrefProperties[xrefProperty] = new Lazy<JToken>(() => JValue.Null);
                     continue;
                 }
 
@@ -273,8 +273,13 @@ namespace Microsoft.Docs.Build
                 return (errors, value);
             }
 
+            if (!(value.Value is string str))
+            {
+                return (errors, value);
+            }
+
             var sourceInfo = JsonUtility.GetSourceInfo(value);
-            var content = new SourceInfo<string>(value.Value<string>(), sourceInfo);
+            var content = new SourceInfo<string>(str, sourceInfo);
 
             switch (schema.ContentType)
             {

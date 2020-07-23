@@ -242,10 +242,8 @@ namespace Microsoft.Docs.Build
                     return value.ToBoolean();
 
                 case JavaScriptValueType.Null:
-                    return JValue.CreateNull();
-
                 case JavaScriptValueType.Undefined:
-                    return JValue.CreateUndefined();
+                    return JValue.Null;
 
                 case JavaScriptValueType.String:
                     return value.ToString();

@@ -14,7 +14,7 @@ namespace Microsoft.Docs.Build
     /// </summary>
     [JsonConverter(typeof(PathStringJsonConverter))]
     [TypeConverter(typeof(PathStringTypeConverter))]
-    internal struct PathString : IEquatable<PathString>, IComparable<PathString>
+    public struct PathString : IEquatable<PathString>, IComparable<PathString>
     {
         private string? _value;
 

@@ -55,7 +55,7 @@ namespace Microsoft.Docs.Build
                       !dep.name.Equals("_themes.pdf", StringComparison.OrdinalIgnoreCase) &&
                       !dep.name.Equals("_repo.en-us", StringComparison.OrdinalIgnoreCase) &&
                       !dep.name.StartsWith("_dependentPackages", StringComparison.OrdinalIgnoreCase)
-                select new JProperty(dep.path, dep.obj));
+                select new KeyValuePair<string, JToken>(dep.path, dep.obj));
 
             result["template"] = dependencies.FirstOrDefault(
                 dep => dep.name.Equals("_themes", StringComparison.OrdinalIgnoreCase)).obj;
@@ -89,7 +89,7 @@ namespace Microsoft.Docs.Build
             if (monodoc != null)
             {
                 result["monodoc"] = monodoc;
-                result["sourceMap"] = new JArray(monodoc.Select((_, index) => $".sourcemap-{index}.json"));
+                result["sourceMap"] = new JArray(monodoc.Select((_, index) => new JValue($".sourcemap-{index}.json")));
             }
 
             result["runLearnValidation"] = NeedRunLearnValidation(docsetConfig);

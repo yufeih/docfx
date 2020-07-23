@@ -94,7 +94,7 @@ namespace Microsoft.Docs.Build
 
             var data = YamlUtility.DeserializeData<JArray>(File.ReadAllText(file), new FilePath(file));
 
-            return data.ToDictionary(item => item.Value<string>("uid"), item => item.Value<string>("name"));
+            return data.ToDictionary(item => item["uid"], item => item["name"]);
         }
 
         private static Template LoadTemplate(string fullPath)

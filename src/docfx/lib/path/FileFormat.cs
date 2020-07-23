@@ -3,7 +3,7 @@
 
 namespace Microsoft.Docs.Build
 {
-    internal enum FileFormat
+    public enum FileFormat
     {
         Unknown,
         Markdown,

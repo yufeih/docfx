@@ -270,7 +270,7 @@ namespace Microsoft.Docs.Build
 
                 if (value is JArray arr)
                 {
-                    foreach (var v in value)
+                    foreach (var v in arr)
                     {
                         if (v is JValue)
                         {
@@ -279,9 +279,13 @@ namespace Microsoft.Docs.Build
                     }
                     continue;
                 }
-                else if (value.Type == JTokenType.Boolean)
+                else if (value.Type == JTokenType.True)
                 {
-                    content = (bool)value ? "true" : "false";
+                    content = "true";
+                }
+                else if (value.Type == JTokenType.False)
+                {
+                    content = "false";
                 }
                 else
                 {

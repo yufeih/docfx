@@ -657,25 +657,17 @@ namespace Microsoft.Docs.Build
 
         private static bool TypeMatches(JsonSchemaType schemaType, JTokenType tokenType)
         {
-            switch (schemaType)
+            return schemaType switch
             {
-                case JsonSchemaType.Array:
-                    return tokenType == JTokenType.Array;
-                case JsonSchemaType.Boolean:
-                    return tokenType == JTokenType.Boolean;
-                case JsonSchemaType.Integer:
-                    return tokenType == JTokenType.Integer;
-                case JsonSchemaType.Null:
-                    return tokenType == JTokenType.Null;
-                case JsonSchemaType.Number:
-                    return tokenType == JTokenType.Integer || tokenType == JTokenType.Float;
-                case JsonSchemaType.Object:
-                    return tokenType == JTokenType.Object;
-                case JsonSchemaType.String:
-                    return tokenType == JTokenType.String;
-                default:
-                    return true;
-            }
+                JsonSchemaType.Array => tokenType == JTokenType.Array,
+                JsonSchemaType.Boolean => tokenType == JTokenType.True || tokenType == JTokenType.False,
+                JsonSchemaType.Integer => tokenType == JTokenType.Number,
+                JsonSchemaType.Null => tokenType == JTokenType.Null,
+                JsonSchemaType.Number => tokenType == JTokenType.Number,
+                JsonSchemaType.Object => tokenType == JTokenType.Object,
+                JsonSchemaType.String => tokenType == JTokenType.String,
+                _ => true,
+            };
         }
 
         private bool CanonicalVersionOnly(string key, string code)
