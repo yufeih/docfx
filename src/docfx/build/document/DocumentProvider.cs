@@ -53,15 +53,17 @@ namespace Microsoft.Docs.Build
         {
             var file = GetDocument(path);
             var outputPath = file.SitePath;
+
             if ((file.ContentType == ContentType.Page && file.IsPage) ||
                 file.ContentType == ContentType.Redirection ||
                 file.ContentType == ContentType.TableOfContents)
             {
-                var fileExtension = _config.Legacy && file.IsPage
+                var fileExtension = _config.OutputType == OutputType.JsonPage && file.IsPage
                     ? ".raw.page.json"
                     : _config.OutputType == OutputType.Html ? ".html" : ".json";
                 outputPath = Path.ChangeExtension(outputPath, fileExtension);
             }
+
             if (_config.OutputUrlType == OutputUrlType.Docs)
             {
                 var monikers = _monikerProvider.GetFileLevelMonikers(_errors, path);
@@ -176,11 +178,8 @@ namespace Microsoft.Docs.Build
                 var monikers = _monikerProvider.GetFileLevelMonikers(_errors, filePath);
                 sitePath = Path.Combine(monikers.MonikerGroup ?? "", sitePath);
             }
-            if (_config.LowerCaseUrl)
-            {
-                sitePath = sitePath.ToLowerInvariant();
-            }
-            return sitePath.Replace('\\', '/');
+
+            return sitePath.ToLowerInvariant().Replace('\\', '/');
         }
 
         private static string PathToAbsoluteUrl(string path, ContentType contentType, OutputUrlType outputUrlType, bool isPage)

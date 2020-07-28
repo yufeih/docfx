@@ -44,7 +44,7 @@ namespace Microsoft.Docs.Build
                     context.Output.WriteJson(Path.ChangeExtension(outputPath, ".json"), output);
                 }
 
-                if (context.Config.Legacy && file.IsPage)
+                if (context.Config.OutputType == OutputType.JsonPage && file.IsPage)
                 {
                     var metadataPath = outputPath.Substring(0, outputPath.Length - ".raw.page.json".Length) + ".mta.json";
                     context.Output.WriteJson(metadataPath, metadata);
@@ -54,8 +54,7 @@ namespace Microsoft.Docs.Build
             context.PublishModelBuilder.SetPublishItem(file.FilePath, metadata, outputPath);
         }
 
-        private static (object output, JObject metadata) CreatePageOutput(
-            ErrorBuilder errors, Context context, Document file, JObject sourceModel)
+        private static (object output, JObject metadata) CreatePageOutput(ErrorBuilder errors, Context context, Document file, JObject sourceModel)
         {
             var outputMetadata = new JObject();
             var outputModel = new JObject();
@@ -66,7 +65,7 @@ namespace Microsoft.Docs.Build
             // Mandatory metadata are metadata that are required by template to successfully ran to completion.
             // The current bookmark validation for SDP validates against HTML produced from mustache,
             // so we need to run the full template for SDP even in --dry-run mode.
-            if (context.Config.DryRun && TemplateEngine.IsConceptual(file.Mime) && context.Config.OutputType != OutputType.Html)
+            if (context.Config.DryRun && TemplateEngine.IsConceptual(file.Mime))
             {
                 return (new JObject(), new JObject());
             }
@@ -88,13 +87,13 @@ namespace Microsoft.Docs.Build
                 JsonUtility.Merge(outputModel, sourceModel, new JObject { ["metadata"] = outputMetadata });
             }
 
-            if (context.Config.OutputType == OutputType.Json && !context.Config.Legacy)
+            if (context.Config.OutputType == OutputType.Json)
             {
                 return (outputModel, JsonUtility.SortProperties(outputMetadata));
             }
 
             var (templateModel, templateMetadata) = CreateTemplateModel(context, JsonUtility.SortProperties(outputModel), file);
-            if (context.Config.OutputType == OutputType.Json)
+            if (context.Config.OutputType == OutputType.JsonPage)
             {
                 return (templateModel, JsonUtility.SortProperties(templateMetadata));
             }
@@ -106,7 +105,7 @@ namespace Microsoft.Docs.Build
             }
             catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
             {
-                errors.AddRange(dex.Select(ex => ex.Error));
+                errors.AddRange(dex);
                 return (templateModel, JsonUtility.SortProperties(templateMetadata));
             }
         }
@@ -252,7 +251,7 @@ namespace Microsoft.Docs.Build
 
             var pageModel = (JObject)context.JsonSchemaTransformer.TransformContent(errors, schemaTemplate.JsonSchema, file, validatedObj);
 
-            if (context.Config.Legacy && TemplateEngine.IsLandingData(file.Mime))
+            if (TemplateEngine.IsLandingData(file.Mime))
             {
                 var landingData = JsonUtility.ToObject<LandingData>(errors, pageModel);
                 var razorHtml = RazorTemplate.Render(file.Mime, landingData).GetAwaiter().GetResult();

@@ -6,13 +6,18 @@ namespace Microsoft.Docs.Build
     internal enum OutputType
     {
         /// <summary>
-        /// Output json file
+        /// Output final HTML file.
+        /// </summary>
+        Html,
+
+        /// <summary>
+        /// Output JSON file before applying javascript in template.
         /// </summary>
         Json,
 
         /// <summary>
-        /// Output Html file with liquid applied
+        /// Output JSON file after applying javascript in template.
         /// </summary>
-        Html,
+        JsonPage,
     }
 }

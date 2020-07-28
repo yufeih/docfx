@@ -78,11 +78,6 @@ namespace Microsoft.Docs.Build
         public OutputUrlType OutputUrlType { get; private set; } = OutputUrlType.Pretty;
 
         /// <summary>
-        /// Gets whether to lowercase all URLs and output file path.
-        /// </summary>
-        public bool LowerCaseUrl { get; private set; } = true;
-
-        /// <summary>
         /// Gets whether resources are copied to output.
         /// </summary>
         public bool CopyResources { get; private set; } = true;
@@ -126,11 +121,6 @@ namespace Microsoft.Docs.Build
         /// Gets host name used for generating .xrefmap.json
         /// </summary>
         public string XrefHostName { get; private set; } = "";
-
-        /// <summary>
-        /// Gets whether we are running in legacy mode
-        /// </summary>
-        public bool Legacy { get; private set; }
 
         /// <summary>
         /// Gets whether we are running in dry run mode
@@ -335,11 +325,8 @@ namespace Microsoft.Docs.Build
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
         {
-            if (LowerCaseUrl)
-            {
-                HostName = HostName.ToLowerInvariant();
-                BasePath = new BasePath(BasePath.Value.ToLowerInvariant());
-            }
+            HostName = HostName.ToLowerInvariant();
+            BasePath = new BasePath(BasePath.Value.ToLowerInvariant());
         }
     }
 }
