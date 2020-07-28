@@ -93,7 +93,7 @@ namespace Microsoft.Docs.Build
             /// Liquid is not found for current mime type.
             /// </summary>
             /// Behavior: ❌ Message: ❌
-            public static Error LiquidNotFound(SourceInfo<string?> source)
+            public static Error LiquidNotFound(SourceInfo<string> source)
                 => new Error(ErrorLevel.Warning, "liquid-not-found", $"Liquid template used to generate HTML is not found for mimeType '{source}', the output HTML will not be generated.", source);
 
             /// <summary>
@@ -190,8 +190,18 @@ namespace Microsoft.Docs.Build
             ///   - defined a an unknown schema type(other than conceptual, contextObject, landingData)
             /// </summary>
             /// Behavior: ❌ Message: ✔️
-            public static Error SchemaNotFound(SourceInfo<string?> source)
+            public static Error SchemaNotFound(SourceInfo<string> source)
                 => new Error(ErrorLevel.Error, "schema-not-found", $"Unknown schema '{source}'.", source);
+
+            /// <summary>
+            /// Used unknown YamlMime.
+            /// Examples:
+            ///   - forgot to define schema in schema document(yml)
+            ///   - defined a an unknown schema type(other than conceptual, contextObject, landingData)
+            /// </summary>
+            /// Behavior: ❌ Message: ✔️
+            public static Error SchemaNotFound(FilePath file)
+                => new Error(ErrorLevel.Error, "schema-not-found", $"Missing schema or YamlMime.", new SourceInfo(file, 1, 1));
         }
 
         public static class Config

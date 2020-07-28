@@ -128,13 +128,13 @@ namespace Microsoft.Docs.Build
 
         public static void TrackBuildFileTypeCount(FilePath filePath, PublishItem publishItem)
         {
-            var (fileExtension, documentType, mimeType) = GetFileType(filePath, publishItem.ContentType, publishItem.Mime);
+            var (fileExtension, documentType, mimeType) = GetFileType(filePath, publishItem.ContentType, publishItem.SchemaName);
             s_buildFileTypeCountMetric.TrackValue(1, fileExtension, documentType, mimeType, s_os, s_version, s_repo, s_branch, s_correlationId);
         }
 
         public static void TrackMarkdownElement(Document file, Dictionary<string, int> elementCount)
         {
-            var (fileExtension, documentType, mimeType) = GetFileType(file.FilePath, file.ContentType, file.Mime.Value);
+            var (fileExtension, documentType, mimeType) = GetFileType(file.FilePath, file.ContentType, file.SchemaName.Value);
             foreach (var (elementType, value) in elementCount)
             {
                 s_markdownElementCountMetric.TrackValue(

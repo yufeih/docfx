@@ -105,7 +105,7 @@ namespace Microsoft.Docs.Build
             }
 
             // if source is redirection or migrated from markdown, change it to *.md
-            if (file.ContentType == ContentType.Redirection || TemplateEngine.IsMigratedFromMarkdown(file.Mime))
+            if (file.ContentType == ContentType.Redirection || TemplateEngine.IsMigratedFromMarkdown(file.SchemaName))
             {
                 sourcePath = Path.ChangeExtension(sourcePath, ".md");
             }
@@ -138,7 +138,7 @@ namespace Microsoft.Docs.Build
         private Document GetDocumentCore(FilePath path)
         {
             var contentType = _buildScope.GetContentType(path);
-            var mime = _buildScope.GetMime(contentType, path);
+            var mime = _buildScope.GetSchemaName(contentType, path);
             var isPage = (contentType == ContentType.Page || contentType == ContentType.Redirection) && _templateEngine.IsPage(mime);
             var isExperimental = Path.GetFileNameWithoutExtension(path.Path).EndsWith(".experimental", PathUtility.PathComparison);
             var sitePath = FilePathToSitePath(path, contentType, _config.OutputUrlType, isPage);

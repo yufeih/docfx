@@ -62,7 +62,7 @@ namespace Microsoft.Docs.Build
                     monikers,
                     _monikerProvider.GetConfigMonikerRange(sourcePath),
                     document.ContentType,
-                    document.Mime,
+                    document.SchemaName,
                     _errors.FileHasError(sourcePath),
                     buildOutput ? RemoveComplexValue(result.metadata) : null);
                 publishItems.Add(sourcePath, publishItem);

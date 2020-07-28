@@ -39,7 +39,7 @@ namespace Microsoft.Docs.Build
         public ContentType ContentType { get; }
 
         [JsonIgnore]
-        public string? Mime { get; }
+        public string SchemaName { get; }
 
         public PublishItem(
             string url,
@@ -49,7 +49,7 @@ namespace Microsoft.Docs.Build
             MonikerList monikers,
             string? configMonikerRange,
             ContentType contentType,
-            string? mime,
+            string schemaName,
             bool hasError,
             JObject? extensionData)
         {
@@ -60,7 +60,7 @@ namespace Microsoft.Docs.Build
             Monikers = monikers;
             ConfigMonikerRange = configMonikerRange;
             ContentType = contentType;
-            Mime = mime;
+            SchemaName = schemaName;
             HasError = hasError;
             ExtensionData = extensionData;
         }

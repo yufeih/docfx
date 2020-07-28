@@ -66,14 +66,14 @@ namespace Microsoft.Docs.Build
             // Mandatory metadata are metadata that are required by template to successfully ran to completion.
             // The current bookmark validation for SDP validates against HTML produced from mustache,
             // so we need to run the full template for SDP even in --dry-run mode.
-            if (context.Config.DryRun && TemplateEngine.IsConceptual(file.Mime) && context.Config.OutputType != OutputType.Html)
+            if (context.Config.DryRun && TemplateEngine.IsConceptual(file.SchemaName) && context.Config.OutputType != OutputType.Html)
             {
                 return (new JObject(), new JObject());
             }
 
             var systemMetadataJObject = JsonUtility.ToJObject(systemMetadata);
 
-            if (TemplateEngine.IsConceptual(file.Mime))
+            if (TemplateEngine.IsConceptual(file.SchemaName))
             {
                 // conceptual raw metadata and raw model
                 JsonUtility.Merge(outputMetadata, userMetadata.RawJObject, systemMetadataJObject);
@@ -118,7 +118,7 @@ namespace Microsoft.Docs.Build
                 return (new JObject(), new JObject());
             }
 
-            return (context.TemplateEngine.RunJavaScript($"{file.Mime}.json.js", sourceModel), new JObject());
+            return (context.TemplateEngine.RunJavaScript($"{file.SchemaName}.json.js", sourceModel), new JObject());
         }
 
         private static SystemMetadata CreateSystemMetadata(ErrorBuilder errors, Context context, Document file, UserMetadata userMetadata)
@@ -227,7 +227,7 @@ namespace Microsoft.Docs.Build
 
         private static JObject LoadSchemaDocument(ErrorBuilder errors, Context context, JToken token, Document file)
         {
-            var schemaTemplate = context.TemplateEngine.GetSchema(file.Mime);
+            var schemaTemplate = context.TemplateEngine.GetSchema(file.SchemaName);
 
             if (!(token is JObject obj))
             {
@@ -252,10 +252,10 @@ namespace Microsoft.Docs.Build
 
             var pageModel = (JObject)context.JsonSchemaTransformer.TransformContent(errors, schemaTemplate.JsonSchema, file, validatedObj);
 
-            if (context.Config.Legacy && TemplateEngine.IsLandingData(file.Mime))
+            if (context.Config.Legacy && TemplateEngine.IsLandingData(file.SchemaName))
             {
                 var landingData = JsonUtility.ToObject<LandingData>(errors, pageModel);
-                var razorHtml = RazorTemplate.Render(file.Mime, landingData).GetAwaiter().GetResult();
+                var razorHtml = RazorTemplate.Render(file.SchemaName, landingData).GetAwaiter().GetResult();
 
                 pageModel = JsonUtility.ToJObject(new ConceptualModel
                 {
@@ -282,10 +282,10 @@ namespace Microsoft.Docs.Build
                 content = "<div></div>";
             }
 
-            var jsName = $"{file.Mime}.mta.json.js";
+            var jsName = $"{file.SchemaName}.mta.json.js";
             var templateMetadata = context.TemplateEngine.RunJavaScript(jsName, pageModel) as JObject ?? new JObject();
 
-            if (TemplateEngine.IsLandingData(file.Mime))
+            if (TemplateEngine.IsLandingData(file.SchemaName))
             {
                 templateMetadata.Remove("conceptual");
             }
@@ -307,15 +307,15 @@ namespace Microsoft.Docs.Build
 
         private static string CreateContent(Context context, Document file, JObject pageModel)
         {
-            if (TemplateEngine.IsConceptual(file.Mime) || TemplateEngine.IsLandingData(file.Mime))
+            if (TemplateEngine.IsConceptual(file.SchemaName) || TemplateEngine.IsLandingData(file.SchemaName))
             {
                 // Conceptual and Landing Data
                 return pageModel.Value<string>("conceptual");
             }
 
             // Generate SDP content
-            var model = context.TemplateEngine.RunJavaScript($"{file.Mime}.html.primary.js", pageModel);
-            var content = context.TemplateEngine.RunMustache($"{file.Mime}.html.primary.tmpl", model, file.FilePath);
+            var model = context.TemplateEngine.RunJavaScript($"{file.SchemaName}.html.primary.js", pageModel);
+            var content = context.TemplateEngine.RunMustache($"{file.SchemaName}.html.primary.tmpl", model, file.FilePath);
 
             return ProcessHtml(context, file, content);
         }

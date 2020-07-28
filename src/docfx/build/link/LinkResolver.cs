@@ -188,7 +188,7 @@ namespace Microsoft.Docs.Build
                     // for LandingPage should not be used,
                     // it is a hack to handle some specific logic for landing page based on the user input for now
                     // which needs to be removed once the user input is correct
-                    if (_templateEngine != null && TemplateEngine.IsLandingData(referencingFile.Mime))
+                    if (_templateEngine != null && TemplateEngine.IsLandingData(referencingFile.SchemaName))
                     {
                         if (file is null)
                         {

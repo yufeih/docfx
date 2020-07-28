@@ -77,7 +77,7 @@ namespace Microsoft.Docs.Build
         /// <summary>
         /// Fast pass to read MIME from $schema attribute.
         /// </summary>
-        public static SourceInfo<string?> ReadMime(TextReader reader, FilePath file)
+        public static SourceInfo<string> ReadSchemaName(TextReader reader, FilePath file)
         {
             var schema = ReadSchema(reader, file);
             if (schema.Value is null)
@@ -86,8 +86,7 @@ namespace Microsoft.Docs.Build
             }
 
             // TODO: be more strict
-            var mime = schema.Value.Split('/').LastOrDefault();
-            return new SourceInfo<string?>(mime != null ? Path.GetFileNameWithoutExtension(schema) : null, schema.Source);
+            return new SourceInfo<string>(Path.GetFileNameWithoutExtension(schema), schema.Source);
         }
 
         public static IEnumerable<string> GetPropertyNames(Type type)
@@ -449,7 +448,7 @@ namespace Microsoft.Docs.Build
         /// $schema must be the first attribute in the root object.
         /// Assume input is a valid JSON. Bad input will be processed through Json.NET
         /// </summary>
-        private static SourceInfo<string?> ReadSchema(TextReader reader, FilePath file)
+        private static SourceInfo<string> ReadSchema(TextReader reader, FilePath file)
         {
             try
             {
@@ -461,15 +460,15 @@ namespace Microsoft.Docs.Build
                         if (json.Read() && json.Value is string schema)
                         {
                             var lineInfo = (IJsonLineInfo)json;
-                            return new SourceInfo<string?>(schema, new SourceInfo(file, lineInfo.LineNumber, lineInfo.LinePosition));
+                            return new SourceInfo<string>(schema, new SourceInfo(file, lineInfo.LineNumber, lineInfo.LinePosition));
                         }
                     }
                 }
-                return new SourceInfo<string?>(null, new SourceInfo(file, 1, 1));
+                throw Errors.Yaml.SchemaNotFound(file).ToException();
             }
-            catch (JsonReaderException)
+            catch (JsonReaderException ex)
             {
-                return default;
+                throw ToError(ex, file).ToException(ex);
             }
         }
 

@@ -54,10 +54,20 @@ namespace Microsoft.Docs.Build
 
         public static bool IsConceptual(string? mime)
         {
-            return string.Equals(mime, "Conceptual", StringComparison.OrdinalIgnoreCase);
+            return mime == "Conceptual";
         }
 
-        public TemplateSchema GetSchema(SourceInfo<string?> schemaName)
+        public static bool IsLandingData(string? mime)
+        {
+            return mime == "LandingData";
+        }
+
+        public static bool IsMigratedFromMarkdown(string schemaName)
+        {
+            return schemaName == "Hub" || schemaName == "Landing" || schemaName == "LandingData";
+        }
+
+        public TemplateSchema GetSchema(SourceInfo<string> schemaName)
         {
             var name = schemaName.Value;
             return !string.IsNullOrEmpty(name) && _schemas.TryGetValue(name, out var schemaTemplate)
@@ -78,7 +88,7 @@ namespace Microsoft.Docs.Build
                 ["theme_rel"] = themeRelativePath,
             };
 
-            return _liquid.Render(layout, file.Mime, liquidModel);
+            return _liquid.Render(layout, file.SchemaName, liquidModel);
         }
 
         public string RunMustache(string templateName, JToken pageModel, FilePath file)
@@ -108,17 +118,6 @@ namespace Microsoft.Docs.Build
                 }
             }
             return result;
-        }
-
-        public static bool IsLandingData(string? mime)
-        {
-            return mime != null && string.Equals(typeof(LandingData).Name, mime, StringComparison.OrdinalIgnoreCase);
-        }
-
-        public static bool IsMigratedFromMarkdown(string? mime)
-        {
-            var migratedMimeTypes = new string[] { "Hub", "Landing", nameof(LandingData) };
-            return mime != null && migratedMimeTypes.Contains(mime, StringComparer.OrdinalIgnoreCase);
         }
 
         public string? GetToken(string key)

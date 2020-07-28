@@ -23,7 +23,7 @@ namespace Microsoft.Docs.Build
             {
                 var errors = getErrors();
                 var file = InclusionContext.File as Document;
-                var scanTags = file != null && file.ContentType == ContentType.Page && TemplateEngine.IsConceptual(file.Mime);
+                var scanTags = file != null && file.ContentType == ContentType.Page && TemplateEngine.IsConceptual(file.SchemaName);
 
                 document.Visit(node =>
                 {

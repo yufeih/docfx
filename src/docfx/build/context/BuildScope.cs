@@ -29,8 +29,8 @@ namespace Microsoft.Docs.Build
         private readonly ConcurrentDictionary<PathString, (PathString, FileMappingConfig?)> _fileMappings
                    = new ConcurrentDictionary<PathString, (PathString, FileMappingConfig?)>();
 
-        private readonly ConcurrentDictionary<FilePath, SourceInfo<string?>> _mimeTypeCache
-                   = new ConcurrentDictionary<FilePath, SourceInfo<string?>>();
+        private readonly ConcurrentDictionary<FilePath, SourceInfo<string>> _schemaNameCache
+                   = new ConcurrentDictionary<FilePath, SourceInfo<string>>();
 
         /// <summary>
         /// Gets all the files and fallback files to build, excluding redirections.
@@ -115,11 +115,18 @@ namespace Microsoft.Docs.Build
             return ContentType.Page;
         }
 
-        public SourceInfo<string?> GetMime(ContentType contentType, FilePath filePath)
+        public SourceInfo<string> GetSchemaName(ContentType contentType, FilePath filePath)
         {
-            return _mimeTypeCache.GetOrAdd(filePath, path =>
+            return _schemaNameCache.GetOrAdd(filePath, path => contentType switch
             {
-                return contentType == ContentType.Page ? ReadMimeFromFile(_input, path) : default;
+                ContentType.Page => filePath.Format switch
+                {
+                    FileFormat.Json => JsonUtility.ReadSchemaName(_input.ReadText(filePath), filePath),
+                    FileFormat.Yaml => YamlUtility.ReadSchemaName(_input.ReadText(filePath), filePath),
+                    FileFormat.Markdown => new SourceInfo<string>("Conceptual", new SourceInfo(filePath, 1, 1)),
+                    _ => throw new NotSupportedException(),
+                },
+                _ => new SourceInfo<string>(contentType.ToString(), new SourceInfo(filePath)),
             });
         }
 
@@ -233,32 +240,6 @@ namespace Microsoft.Docs.Build
                     select GlobUtility.CreateGlobMatcher(
                         mapping.Files, mapping.Exclude.Concat(Config.DefaultExclude).ToArray()))
                         .ToArray();
-        }
-
-        private static SourceInfo<string?> ReadMimeFromFile(Input input, FilePath filePath)
-        {
-            switch (filePath.Format)
-            {
-                // TODO: we could have not depend on this exists check, but currently
-                //       LinkResolver works with Document and return a Document for token files,
-                //       thus we are forced to get the mime type of a token file here even if it's not useful.
-                //
-                //       After token resolve does not create Document, this Exists check can be removed.
-                case FileFormat.Json:
-                    using (var reader = input.ReadText(filePath))
-                    {
-                        return JsonUtility.ReadMime(reader, filePath);
-                    }
-                case FileFormat.Yaml:
-                    using (var reader = input.ReadText(filePath))
-                    {
-                        return new SourceInfo<string?>(YamlUtility.ReadMime(reader), new SourceInfo(filePath, 1, 1));
-                    }
-                case FileFormat.Markdown:
-                    return new SourceInfo<string?>("Conceptual", new SourceInfo(filePath, 1, 1));
-                default:
-                    throw new NotSupportedException();
-            }
         }
     }
 }

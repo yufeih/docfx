@@ -17,7 +17,7 @@ namespace Microsoft.Docs.Build
         /// <summary>
         /// Gets the MIME type specified in YAML header or JSON $schema.
         /// </summary>
-        public SourceInfo<string?> Mime { get; }
+        public SourceInfo<string> SchemaName { get; }
 
         /// <summary>
         /// Gets the source file path relative to docset folder that is:
@@ -81,7 +81,7 @@ namespace Microsoft.Docs.Build
             string siteUrl,
             string canonicalUrl,
             ContentType contentType,
-            SourceInfo<string?> mime,
+            SourceInfo<string> schemaName,
             bool isExperimental,
             bool isPage = true)
         {
@@ -92,7 +92,7 @@ namespace Microsoft.Docs.Build
             SiteUrl = siteUrl;
             CanonicalUrl = canonicalUrl;
             ContentType = contentType;
-            Mime = mime;
+            SchemaName = schemaName;
             IsExperimental = isExperimental;
             IsPage = isPage;
 

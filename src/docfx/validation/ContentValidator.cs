@@ -38,7 +38,7 @@ namespace Microsoft.Docs.Build
         public void ValidateImageLink(Document file, SourceInfo<string> link, string? altText)
         {
             // validate image link and altText here
-            if (_links.TryAdd(link) && TryGetValidationDocumentType(file, file.Mime.Value, false, out var documentType))
+            if (_links.TryAdd(link) && TryGetValidationDocumentType(file, false, out var documentType))
             {
                 var validationContext = new ValidationContext { DocumentType = documentType, File = file.FilePath.Path };
                 Write(_validator.ValidateLink(
@@ -54,7 +54,7 @@ namespace Microsoft.Docs.Build
 
         public void ValidateHeadings(Document file, List<ContentNode> nodes, bool isIncluded)
         {
-            if (TryGetValidationDocumentType(file, file.Mime.Value, isIncluded, out var documentType))
+            if (TryGetValidationDocumentType(file, isIncluded, out var documentType))
             {
                 var validationContext = new ValidationContext { DocumentType = documentType };
                 Write(_validator.ValidateHeadings(nodes, validationContext).GetAwaiter().GetResult());
@@ -68,7 +68,7 @@ namespace Microsoft.Docs.Build
                 return;
             }
 
-            if (TryGetValidationDocumentType(file, file.Mime.Value, false, out var documentType))
+            if (TryGetValidationDocumentType(file, false, out var documentType))
             {
                 var monikers = _monikerProvider.GetFileLevelMonikers(_errors, file.FilePath);
                 var canonicalVersion = _publishUrlMap.Value.GetCanonicalVersion(file.SiteUrl);
@@ -102,7 +102,7 @@ namespace Microsoft.Docs.Build
 
         public void ValidateSensitiveLanguage(string content, Document document)
         {
-            if (TryGetValidationDocumentType(document, document.Mime.Value, false, out var documentType))
+            if (TryGetValidationDocumentType(document, false, out var documentType))
             {
                 var validationContext = new ValidationContext { DocumentType = documentType };
 
@@ -123,7 +123,7 @@ namespace Microsoft.Docs.Build
 
         public void ValidateManifest(FilePath filePath, PublishItem publishItem)
         {
-            if (TryGetValidationDocumentType(publishItem.ContentType, filePath, publishItem.Mime, false, out var documentType))
+            if (TryGetValidationDocumentType(publishItem.ContentType, filePath, publishItem.SchemaName, false, out var documentType))
             {
                 var manifestItem = new ManifestItem()
                 {
@@ -138,7 +138,7 @@ namespace Microsoft.Docs.Build
 
         public void ValidateTocDeprecated(Document file)
         {
-            if (TryGetValidationDocumentType(file, string.Empty, false, out var documentType))
+            if (TryGetValidationDocumentType(file, false, out var documentType))
             {
                 var validationContext = new ValidationContext { DocumentType = documentType };
                 var tocItem = new DeprecatedTocItem()
@@ -152,7 +152,7 @@ namespace Microsoft.Docs.Build
 
         public void ValidateTocMissing(Document document, bool hasReferencedTocs)
         {
-            if (TryGetValidationDocumentType(document, document.Mime.Value, false, out var documentType))
+            if (TryGetValidationDocumentType(document, false, out var documentType))
             {
                 var validationContext = new ValidationContext { DocumentType = documentType };
                 var tocItem = new MissingTocItem()
@@ -168,7 +168,7 @@ namespace Microsoft.Docs.Build
         public void ValidateTocBreadcrumbLinkExternal(Document file, SourceInfo<TableOfContentsNode> node)
         {
             if (!string.IsNullOrEmpty(node.Value?.Href)
-                && TryGetValidationDocumentType(file, string.Empty, false, out var documentType))
+                && TryGetValidationDocumentType(file, false, out var documentType))
             {
                 var validationContext = new ValidationContext { DocumentType = documentType };
                 var tocItem = new ExternalBreadcrumbTocItem()
@@ -183,7 +183,7 @@ namespace Microsoft.Docs.Build
 
         public void ValidateTocEntryDuplicated(Document file, List<Document> referencedFiles)
         {
-            if (TryGetValidationDocumentType(file, string.Empty, false, out var documentType))
+            if (TryGetValidationDocumentType(file, false, out var documentType))
             {
                 var filePaths = referencedFiles
                     .Where(item => item != null)
@@ -234,18 +234,18 @@ namespace Microsoft.Docs.Build
         }
 
         // Now Docs.Validation only support conceptual page, redirection page and toc file. Other type will be supported later.
-        private bool TryGetValidationDocumentType(Document file, string? mime, bool isIncluded, out string documentType)
+        private bool TryGetValidationDocumentType(Document file, bool isIncluded, out string documentType)
         {
-            return TryGetValidationDocumentType(file.ContentType, file.FilePath, mime, isIncluded, out documentType);
+            return TryGetValidationDocumentType(file.ContentType, file.FilePath, file.SchemaName, isIncluded, out documentType);
         }
 
-        private bool TryGetValidationDocumentType(ContentType contentType, FilePath filePath, string? mime, bool isIncluded, out string documentType)
+        private bool TryGetValidationDocumentType(ContentType contentType, FilePath filePath, string schemaName, bool isIncluded, out string documentType)
         {
             documentType = string.Empty;
             switch (contentType)
             {
                 case ContentType.Page:
-                    if (mime != "Conceptual")
+                    if (schemaName != "Conceptual")
                     {
                         return false;
                     }

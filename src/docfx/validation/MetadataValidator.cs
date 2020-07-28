@@ -63,7 +63,7 @@ namespace Microsoft.Docs.Build
             }
 
             var contentType = _buildScope.GetContentType(filePath);
-            var mime = _buildScope.GetMime(contentType, filePath);
+            var mime = _buildScope.GetSchemaName(contentType, filePath);
             var siteUrl = _documentProvider.GetDocsSiteUrl(filePath);
             var canonicalVersion = _publishUrlMap.GetCanonicalVersion(siteUrl);
             var isCanonicalVersion = MonikerList.IsCanonicalVersion(canonicalVersion, _monikerProvider.GetFileLevelMonikers(errors, filePath));

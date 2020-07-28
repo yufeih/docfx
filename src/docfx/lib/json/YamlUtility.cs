@@ -2,7 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json.Linq;
@@ -14,42 +13,32 @@ namespace Microsoft.Docs.Build
 {
     internal static partial class YamlUtility
     {
-        public const string YamlMimePrefix = "YamlMime:";
+        private const string YamlMimePrefix = "YamlMime:";
 
-        public static string? ReadMime(TextReader reader)
+        public static SourceInfo<string> ReadSchemaName(TextReader reader, FilePath file)
         {
             var mime = ReadMime(reader.ReadLine() ?? "");
-            if (string.Compare(mime, "YamlDocument", StringComparison.OrdinalIgnoreCase) == 0)
+            if (mime == "YamlDocument")
             {
-                return ReadDocumentType(reader);
+                mime = ReadDocumentType(reader);
             }
-            return mime;
+            return new SourceInfo<string>(mime ?? throw Errors.Yaml.SchemaNotFound(file).ToException(), new SourceInfo(file, 1, 1));
         }
 
-        /// <summary>
-        /// Get yaml mime type
-        /// </summary>
         public static string? ReadMime(string yaml)
-        {
-            var header = ReadHeader(yaml);
-            if (header is null || !header.StartsWith(YamlMimePrefix, StringComparison.OrdinalIgnoreCase))
-            {
-                return null;
-            }
-            return header.Substring(YamlMimePrefix.Length).Trim();
-        }
-
-        /// <summary>
-        /// Get the content of the first comment line
-        /// </summary>
-        public static string? ReadHeader(string yaml)
         {
             if (!yaml.StartsWith("#"))
             {
                 return null;
             }
+
             var i = yaml.IndexOf('\n');
-            return yaml.Substring(0, i < 0 ? yaml.Length : i).TrimStart('#').Trim();
+            var header = yaml.Substring(0, i < 0 ? yaml.Length : i).TrimStart('#').Trim();
+            if (!header.StartsWith(YamlMimePrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+            return header.Substring(YamlMimePrefix.Length).Trim();
         }
 
         /// <summary>
