@@ -88,28 +88,6 @@ namespace Microsoft.Docs.Build
 
             public static Error MetadataValidationRuleset(string ruleset)
                 => new Error(ErrorLevel.Info, "MetadataValidationRuleset", $"Metadata validation ruleset used: {ruleset}.");
-
-            /// <summary>
-            /// Liquid is not found for current mime type.
-            /// </summary>
-            /// Behavior: ❌ Message: ❌
-            public static Error LiquidNotFound(SourceInfo<string> source)
-                => new Error(ErrorLevel.Warning, "liquid-not-found", $"Liquid template used to generate HTML is not found for mimeType '{source}', the output HTML will not be generated.", source);
-
-            /// <summary>
-            /// Failed to restore dependent repository
-            /// Examples:
-            ///   - System service account is a member of org but is not SSO enabled.
-            ///   - System service account does not have sufficient permission to restore template repo.
-            /// </summary>
-            /// Behavior: ✔️ Message: ✔️
-            public static Error RestoreDependentRepositoryFailed(string url, string branch)
-            {
-                var message = $"Failed to restore dependent repository `{url}#{branch}`. "
-                        + "This could be caused by an incorrect repository URL, please verify the URL on the Docs Portal (https://ops.microsoft.com). "
-                        + $"If it is not the case, please open a ticket in https://SiteHelp and include URL of the build report.";
-                return new Error(ErrorLevel.Error, "restore-dependent-repository-failed", message);
-            }
         }
 
         public static class Logging
@@ -150,6 +128,9 @@ namespace Microsoft.Docs.Build
             /// Behavior: ❌ Message: ❌
             public static Error ViolateSchema(SourceInfo? source, string message)
                 => new Error(ErrorLevel.Error, "violate-schema", message, source);
+
+            public static Error SchemaNotFound(FilePath file)
+                => new Error(ErrorLevel.Error, "schema-not-found", $"Missing $schema.", new SourceInfo(file, 1, 1));
         }
 
         public static class Yaml
@@ -183,25 +164,8 @@ namespace Microsoft.Docs.Build
             public static Error YamlDuplicateKey(SourceInfo? source, string key)
                 => new Error(ErrorLevel.Suggestion, "yaml-duplicate-key", $"Key '{key}' is already defined, remove the duplicate key. NOTE: This Suggestion will become a Warning on 06/30/2020.", source);
 
-            /// <summary>
-            /// Used unknown YamlMime.
-            /// Examples:
-            ///   - forgot to define schema in schema document(yml)
-            ///   - defined a an unknown schema type(other than conceptual, contextObject, landingData)
-            /// </summary>
-            /// Behavior: ❌ Message: ✔️
-            public static Error SchemaNotFound(SourceInfo<string> source)
-                => new Error(ErrorLevel.Error, "schema-not-found", $"Unknown schema '{source}'.", source);
-
-            /// <summary>
-            /// Used unknown YamlMime.
-            /// Examples:
-            ///   - forgot to define schema in schema document(yml)
-            ///   - defined a an unknown schema type(other than conceptual, contextObject, landingData)
-            /// </summary>
-            /// Behavior: ❌ Message: ✔️
             public static Error SchemaNotFound(FilePath file)
-                => new Error(ErrorLevel.Error, "schema-not-found", $"Missing schema or YamlMime.", new SourceInfo(file, 1, 1));
+                => new Error(ErrorLevel.Error, "schema-not-found", $"Missing #YamlMime.", new SourceInfo(file, 1, 1));
         }
 
         public static class Config
@@ -726,8 +690,43 @@ namespace Microsoft.Docs.Build
                 => new Error(ErrorLevel.Info, "disallowed-html", $"HTML attribute '{attribute}' on tag '{tag}' isn't allowed. Disallowed HTML poses a security risk and must be replaced with approved Docs Markdown syntax.", source, name: $"{tag}_{attribute}");
         }
 
+        public static class Template
+        {
+            /// <summary>
+            /// Used unknown YamlMime.
+            /// Examples:
+            ///   - forgot to define schema in schema document(yml)
+            ///   - defined a an unknown schema type(other than conceptual, contextObject, landingData)
+            /// </summary>
+            /// Behavior: ❌ Message: ✔️
+            public static Error SchemaNotFound(SourceInfo<string> source)
+                => new Error(ErrorLevel.Error, "schema-not-found", $"Unknown schema '{source}'.", source);
+
+            /// <summary>
+            /// Liquid is not found for current mime type.
+            /// </summary>
+            /// Behavior: ❌ Message: ❌
+            public static Error LiquidNotFound(SourceInfo<string> source)
+                => new Error(ErrorLevel.Warning, "liquid-not-found", $"Liquid template used to generate HTML is not found for mimeType '{source}', the output HTML will not be generated.", source);
+        }
+
         public static class DependencyRepository
         {
+            /// <summary>
+            /// Failed to restore dependent repository
+            /// Examples:
+            ///   - System service account is a member of org but is not SSO enabled.
+            ///   - System service account does not have sufficient permission to restore template repo.
+            /// </summary>
+            /// Behavior: ✔️ Message: ✔️
+            public static Error RestoreDependentRepositoryFailed(string url, string branch)
+            {
+                var message = $"Failed to restore dependent repository `{url}#{branch}`. "
+                        + "This could be caused by an incorrect repository URL, please verify the URL on the Docs Portal (https://ops.microsoft.com). "
+                        + $"If it is not the case, please open a ticket in https://SiteHelp and include URL of the build report.";
+                return new Error(ErrorLevel.Error, "restore-dependent-repository-failed", message);
+            }
+
             /// <summary>
             /// Repository owner did not re-authorize his/her GitHub account to Docs Build with SSO.
             /// </summary>

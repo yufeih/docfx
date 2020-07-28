@@ -72,7 +72,7 @@ namespace Microsoft.Docs.Build
             var name = schemaName.Value;
             return !string.IsNullOrEmpty(name) && _schemas.TryGetValue(name, out var schemaTemplate)
                ? schemaTemplate.Value
-               : throw Errors.Yaml.SchemaNotFound(schemaName).ToException();
+               : throw Errors.Template.SchemaNotFound(schemaName).ToException();
         }
 
         public string RunLiquid(Document file, TemplateModel model)

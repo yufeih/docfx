@@ -42,8 +42,8 @@ inputs:
     }
 outputs:
   .errors.log: |
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"docs/a.yml","line":1,"column":1}
-   {"message_severity":"error","code":"schema-not-found","message":"Unknown schema ''.","file":"docs/b.json","line":1,"column":1}
+   {"message_severity":"error","code":"schema-not-found","message":"Missing #YamlMime.","file":"docs/a.yml","line":1,"column":1}
+   {"message_severity":"error","code":"schema-not-found","message":"Missing $schema.","file":"docs/b.json","line":1,"column":1}
 ---
 # Fallback to documentType when yaml mime is YamlDocument
 inputs:

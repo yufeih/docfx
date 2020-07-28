@@ -464,7 +464,7 @@ namespace Microsoft.Docs.Build
                         }
                     }
                 }
-                throw Errors.Yaml.SchemaNotFound(file).ToException();
+                throw Errors.Json.SchemaNotFound(file).ToException();
             }
             catch (JsonReaderException ex)
             {
