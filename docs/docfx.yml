@@ -1,5 +1,6 @@
 ﻿exclude:
 - specs/**
 - designs/**
+searchEngine: lunr
 globalMetadata:
   menu_path: /menu.json
