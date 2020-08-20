@@ -57,11 +57,11 @@ namespace Microsoft.Docs.Build
             void ConfigureServices(IServiceCollection services)
             {
                 services.AddMvc().ConfigureApplicationPartManager(parts =>
-                        {
-                            // Ensure we only have one private TemplateController
-                            parts.FeatureProviders.Remove(parts.FeatureProviders.First(fp => fp is IApplicationFeatureProvider<ControllerFeature>));
-                            parts.FeatureProviders.Add(new TemplateControllerProvider());
-                        });
+                      {
+                          // Ensure we only have one private TemplateController
+                          parts.FeatureProviders.Remove(parts.FeatureProviders.First(fp => fp is IApplicationFeatureProvider<ControllerFeature>));
+                          parts.FeatureProviders.Add(new TemplateControllerProvider());
+                      });
             }
 
             void Configure(IApplicationBuilder app)

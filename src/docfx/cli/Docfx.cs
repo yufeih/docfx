@@ -80,6 +80,7 @@ namespace Microsoft.Docs.Build
                 {
                     "restore" => Restore.Run(workingDirectory, options),
                     "build" => Build.Run(workingDirectory, options),
+                    "serve" => Serve.Run(workingDirectory, options),
                     _ => false,
                 } ? 1 : 0;
             }
@@ -104,18 +105,22 @@ namespace Microsoft.Docs.Build
                     // Handle parse errors by us
                     syntax.HandleErrors = false;
 
-                    // Restore command
+                    // restore command
                     syntax.DefineCommand("restore", ref command, "Restores dependencies before build.");
                     syntax.DefineOption("o|output", ref options.Output, "Output directory in which to place restore log.");
                     DefineCommonOptions(syntax, ref workingDirectory, options);
 
-                    // Build command
+                    // build command
                     syntax.DefineCommand("build", ref command, "Builds a docset.");
-                    syntax.DefineOption("o|output", ref options.Output, "Output directory in which to place built artifacts.");
                     syntax.DefineOption("dry-run", ref options.DryRun, "Do not produce build artifact and only produce validation result.");
-                    syntax.DefineOption("no-restore", ref options.NoRestore, "Do not restore dependencies before build.");
-                    syntax.DefineOption("no-cache", ref options.NoCache, "Do not use cache dependencies in build, always fetch latest dependencies.");
-                    DefineCommonOptions(syntax, ref workingDirectory, options);
+                    DefineCommonBuildOptions(syntax, ref workingDirectory, options);
+
+                    // serve command
+                    syntax.DefineCommand("serve", ref command, "Starts a local static web server.");
+                    syntax.DefineOption("p|port", ref options.Port, "Port to use. [8080]");
+                    syntax.DefineOption("address", ref options.Address, "Address to use. [0.0.0.0]");
+                    syntax.DefineOption("list", ref options.List, "Show directory listings.");
+                    DefineCommonBuildOptions(syntax, ref workingDirectory, options);
                 });
 
                 if (options.Stdin)
@@ -130,6 +135,14 @@ namespace Microsoft.Docs.Build
                 Console.Write(ex.Message);
                 return default;
             }
+        }
+
+        private static void DefineCommonBuildOptions(ArgumentSyntax syntax, ref string workingDirectory, CommandLineOptions options)
+        {
+            syntax.DefineOption("o|output", ref options.Output, "Output directory in which to place built artifacts.");
+            syntax.DefineOption("no-restore", ref options.NoRestore, "Do not restore dependencies before build.");
+            syntax.DefineOption("no-cache", ref options.NoCache, "Do not use cache dependencies in build, always fetch latest dependencies.");
+            DefineCommonOptions(syntax, ref workingDirectory, options);
         }
 
         private static void DefineCommonOptions(ArgumentSyntax syntax, ref string workingDirectory, CommandLineOptions options)
@@ -188,8 +201,7 @@ Run `{Environment.CommandLine}` in `{Directory.GetCurrentDirectory()}`
 ";
             try
             {
-                var issueUrl =
-                    $"https://github.com/dotnet/docfx/issues/new?title={HttpUtility.UrlEncode(title)}&body={HttpUtility.UrlEncode(body)}";
+                var issueUrl = $"https://github.com/dotnet/docfx/issues/new?title={HttpUtility.UrlEncode(title)}&body={HttpUtility.UrlEncode(body)}";
 
                 Process.Start(new ProcessStartInfo { FileName = issueUrl, UseShellExecute = true });
             }

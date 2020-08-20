@@ -19,6 +19,10 @@ namespace Microsoft.Docs.Build
         public bool NoRestore;
         public string? Template;
 
+        public int Port = 8080;
+        public string Address = "0.0.0.0";
+        public bool List;
+
         public JObject? StdinConfig;
 
         public JObject ToJObject()
