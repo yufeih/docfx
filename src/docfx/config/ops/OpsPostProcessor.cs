@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System.IO;
+using System.Runtime.CompilerServices;
 using Microsoft.Docs.LearnValidation;
 
 namespace Microsoft.Docs.Build
@@ -65,7 +66,7 @@ namespace Microsoft.Docs.Build
         private void LogError(LearnLogItem item)
         {
             var source = item.File is null ? null : new SourceInfo(new FilePath(item.File));
-            _errors.Add(new Error(MapLevel(item.ErrorLevel), item.ErrorCode.ToString(), item.Message, source));
+            _errors.Add(new Error(MapLevel(item.ErrorLevel), item.ErrorCode.ToString(), FormattableStringFactory.Create(item.Message), source));
 
             static ErrorLevel MapLevel(LearnErrorLevel level) => level switch
             {

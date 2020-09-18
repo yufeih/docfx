@@ -16,6 +16,10 @@ namespace Microsoft.Docs.Build
 
         public string? AdditionalMessage { get; private set; }
 
+        public string? Message { get; private set; }
+
+        public object?[]? MessageArguments { get; private set; }
+
         public bool CanonicalVersionOnly { get; private set; }
 
         public bool PullRequestOnly { get; private set; }

@@ -4,6 +4,7 @@
 extern alias maml;
 
 using System.IO;
+using System.Runtime.CompilerServices;
 using ECMA2Yaml;
 using ECMALogItem = ECMA2Yaml.LogItem;
 using ECMAMessageSeverity = ECMA2Yaml.MessageSeverity;
@@ -113,7 +114,7 @@ namespace Microsoft.Docs.Build
 
                 var source = file is null ? null : new SourceInfo(file, item.Line ?? 0, 0);
 
-                _errors.Add(new Error(MapLevel(item.MessageSeverity), item.Code, item.Message, source));
+                _errors.Add(new Error(MapLevel(item.MessageSeverity), item.Code, FormattableStringFactory.Create(item.Message), source));
             }
 
             static ErrorLevel MapLevel(ECMAMessageSeverity level) => level switch
@@ -136,7 +137,7 @@ namespace Microsoft.Docs.Build
 
                 var source = file is null ? null : new SourceInfo(file, item.Line ?? 0, 0);
 
-                _errors.Add(new Error(MapLevel(item.MessageSeverity), item.Code, item.Message, source));
+                _errors.Add(new Error(MapLevel(item.MessageSeverity), item.Code, FormattableStringFactory.Create(item.Message), source));
             }
 
             static ErrorLevel MapLevel(MAMLMessageSeverity level) => level switch

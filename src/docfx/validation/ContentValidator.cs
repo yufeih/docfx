@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Markdig.Syntax;
 using Microsoft.Docs.Validation;
 
@@ -226,7 +227,7 @@ namespace Microsoft.Docs.Build
 
         private void Write(IEnumerable<ValidationError> validationErrors)
         {
-            _errors.AddRange(validationErrors.Select(e => new Error(GetLevel(e.Severity), e.Code, e.Message, (SourceInfo?)e.SourceInfo)));
+            _errors.AddRange(validationErrors.Select(e => new Error(GetLevel(e.Severity), e.Code, FormattableStringFactory.Create(e.Message), (SourceInfo?)e.SourceInfo)));
 
             static ErrorLevel GetLevel(ValidationSeverity severity) =>
                 severity switch
