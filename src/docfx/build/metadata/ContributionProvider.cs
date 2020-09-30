@@ -18,34 +18,27 @@ namespace Microsoft.Docs.Build
         private readonly ConcurrentDictionary<string, Lazy<CommitBuildTimeProvider>> _commitBuildTimeProviders =
                      new ConcurrentDictionary<string, Lazy<CommitBuildTimeProvider>>(PathUtility.PathComparer);
 
-        private readonly RepositoryProvider _repositoryProvider;
-
         private readonly ConcurrentDictionary<FilePath, (string?, string?, string?)> _gitUrls =
                      new ConcurrentDictionary<FilePath, (string?, string?, string?)>();
 
         public ContributionProvider(
-            Config config, BuildOptions buildOptions, Input input, GitHubAccessor githubAccessor, RepositoryProvider repositoryProvider)
+            Config config, BuildOptions buildOptions, Input input, GitHubAccessor githubAccessor)
         {
             _input = input;
             _config = config;
             _buildOptions = buildOptions;
             _githubAccessor = githubAccessor;
-            _repositoryProvider = repositoryProvider;
         }
 
         public ContributionInfo? GetContributionInfo(ErrorBuilder errors, FilePath file, SourceInfo<string> authorName)
         {
-            var fullPath = _input.TryGetOriginalPhysicalPath(file);
-            if (fullPath is null)
-            {
-                return null;
-            }
-
-            var (repo, _, commits) = _repositoryProvider.GetCommitHistory(fullPath.Value);
+            var (repo, pathToRepo) = _input.TryGetRepository(file);
             if (repo is null)
             {
                 return null;
             }
+
+            var commits = _input.TryGetCommitHistory(file);
 
             var updatedDateTime = GetUpdatedAt(file, repo, commits);
             var contributionInfo = new ContributionInfo
@@ -64,7 +57,7 @@ namespace Microsoft.Docs.Build
             var contributionBranch = LocalizationUtility.TryGetContributionBranch(repo.Branch, out var cBranch) ? cBranch : null;
             if (!string.IsNullOrEmpty(contributionBranch))
             {
-                (_, _, contributionCommits) = _repositoryProvider.GetCommitHistory(fullPath.Value, contributionBranch);
+                contributionCommits = _input.TryGetCommitHistory(file, contributionBranch);
             }
 
             var excludes = _config.GlobalMetadata.ContributorsToExclude.Count > 0
@@ -124,7 +117,7 @@ namespace Microsoft.Docs.Build
                 }
             }
 
-            return _input.TryGetOriginalPhysicalPath(file) is PathString physicalPath ? File.GetLastWriteTimeUtc(physicalPath) : default;
+            return _input.TryGetLastWriteTime(file) ?? default;
         }
 
         public (string? contentGitUrl, string? originalContentGitUrl, string? originalContentGitUrlTemplate)
@@ -135,14 +128,7 @@ namespace Microsoft.Docs.Build
             (string?, string?, string?) GetGitUrlsCore(FilePath file)
             {
                 var isWhitelisted = file.Origin == FileOrigin.Main || file.Origin == FileOrigin.Fallback;
-
-                var fullPath = _input.TryGetOriginalPhysicalPath(file);
-                if (fullPath is null)
-                {
-                    return default;
-                }
-
-                var (repo, pathToRepo) = _repositoryProvider.GetRepository(fullPath.Value);
+                var (repo, pathToRepo) = _input.TryGetRepository(file);
                 if (repo is null || pathToRepo is null)
                 {
                     return default;
@@ -161,18 +147,13 @@ namespace Microsoft.Docs.Build
 
         public string? GetGitCommitUrl(FilePath file)
         {
-            var fullPath = _input.TryGetOriginalPhysicalPath(file);
-            if (fullPath is null)
-            {
-                return default;
-            }
-
-            var (repo, pathToRepo, commits) = _repositoryProvider.GetCommitHistory(fullPath.Value);
+            var (repo, pathToRepo) = _input.TryGetRepository(file);
             if (repo is null || pathToRepo is null)
             {
                 return default;
             }
 
+            var commits = _input.TryGetCommitHistory(file);
             var commit = commits.Length > 0 ? commits[0].Sha : repo.Commit;
 
             return UrlUtility.TryParseGitHubUrl(repo.Url, out _, out _)

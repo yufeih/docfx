@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -16,8 +17,13 @@ namespace Microsoft.Docs.Build
 
         public abstract PathString? TryGetPhysicalPath(PathString path);
 
-        // TODO: Retire this method after abstracting git read operations in Package.
-        public virtual PathString? TryGetGitFilePath(PathString path) => null;
+        public virtual DateTime? TryGetLastWriteTime(PathString path) => default;
+
+        public virtual (Repository? repository, PathString? pathToRepository) TryGetRepository(PathString path) => default;
+
+        public virtual GitCommit[] TryGetCommitHistory(PathString path, string? committish = null) => Array.Empty<GitCommit>();
+
+        public virtual byte[]? TryReadBytes(PathString path, string committish) => default;
 
         public virtual string? TryReadString(PathString path)
         {

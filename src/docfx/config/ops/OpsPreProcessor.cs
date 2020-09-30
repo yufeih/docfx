@@ -66,7 +66,7 @@ namespace Microsoft.Docs.Build
                         var fallbackOutputDirectory = _buildOptions.FallbackDocsetPath is null
                             ? null
                             : Path.GetFullPath(Path.Combine(_buildOptions.DocsetPath, ".fallback", monodocConfig.OutputYamlFolder));
-                        var (repository, _) = _repositoryProvider.GetRepository(new PathString(xmlDirectory));
+
                         ECMA2YamlConverter.Run(
                             xmlDirectory,
                             outputDirectory: Path.GetFullPath(Path.Combine(_buildOptions.DocsetPath, monodocConfig.OutputYamlFolder)),
@@ -75,8 +75,8 @@ namespace Microsoft.Docs.Build
                             logWriter: LogError,
                             logContentBaseDirectory: _buildOptions.DocsetPath,
                             sourceMapFilePath: Path.Combine(_buildOptions.DocsetPath, $".sourcemap-ecma-{index}.json"),
-                            publicGitRepoUrl: _config.EditRepositoryUrl ?? repository?.Url,
-                            publicGitBranch: _config.EditRepositoryBranch ?? repository?.Branch,
+                            publicGitRepoUrl: _config.EditRepositoryUrl ?? _repositoryProvider.Repository?.Url,
+                            publicGitBranch: _config.EditRepositoryBranch ?? _repositoryProvider.Repository?.Branch,
                             config: monodocConfig);
                     }
                 }

@@ -21,23 +21,21 @@ namespace Microsoft.Docs.Build
         private readonly Package? _fallbackPackage;
         private readonly Package? _alternativeFallbackPackage;
         private readonly PackageResolver _packageResolver;
-        private readonly RepositoryProvider _repositoryProvider;
 
         private readonly MemoryCache<FilePath, JToken> _jsonTokenCache = new MemoryCache<FilePath, JToken>();
         private readonly MemoryCache<FilePath, JToken> _yamlTokenCache = new MemoryCache<FilePath, JToken>();
-        private readonly MemoryCache<PathString, byte[]?> _gitBlobCache = new MemoryCache<PathString, byte[]?>();
+        private readonly MemoryCache<FilePath, byte[]?> _gitBlobCache = new MemoryCache<FilePath, byte[]?>();
 
         private readonly ConcurrentDictionary<FilePath, SourceInfo<string?>> _mimeTypeCache = new ConcurrentDictionary<FilePath, SourceInfo<string?>>();
 
         private readonly ConcurrentDictionary<FilePath, (string? yamlMime, JToken generatedContent)> _generatedContents =
                      new ConcurrentDictionary<FilePath, (string?, JToken)>();
 
-        public Input(BuildOptions buildOptions, Config config, PackageResolver packageResolver, RepositoryProvider repositoryProvider, SourceMap sourceMap)
+        public Input(BuildOptions buildOptions, Config config, PackageResolver packageResolver, SourceMap sourceMap)
         {
             _config = config;
             _sourceMap = sourceMap;
             _packageResolver = packageResolver;
-            _repositoryProvider = repositoryProvider;
             _mainPackage = new LocalPackage(buildOptions.DocsetPath);
 
             if (buildOptions.FallbackDocsetPath != null)
@@ -85,18 +83,6 @@ namespace Microsoft.Docs.Build
             }
 
             var (package, path) = ResolveFilePath(file);
-
-            return package.TryGetPhysicalPath(path);
-        }
-
-        public PathString? TryGetOriginalPhysicalPath(FilePath file)
-        {
-            if (file.IsGitCommit || file.Origin == FileOrigin.Generated)
-            {
-                return default;
-            }
-
-            var (package, path) = ResolveFilePath(_sourceMap.GetOriginalFilePath(file) ?? file);
 
             return package.TryGetPhysicalPath(path);
         }
@@ -169,6 +155,27 @@ namespace Microsoft.Docs.Build
             var (package, path) = ResolveFilePath(file);
 
             return package.ReadStream(path);
+        }
+
+        public virtual DateTime? TryGetLastWriteTime(FilePath file)
+        {
+            var (package, path) = TryResolveFilePath(_sourceMap.GetOriginalFilePath(file) ?? file);
+
+            return package?.TryGetLastWriteTime(path);
+        }
+
+        public (Repository? repository, PathString? pathToRepository) TryGetRepository(FilePath file)
+        {
+            var (package, path) = TryResolveFilePath(_sourceMap.GetOriginalFilePath(file) ?? file);
+
+            return package?.TryGetRepository(path) ?? default;
+        }
+
+        public GitCommit[] TryGetCommitHistory(FilePath file, string? committish = null)
+        {
+            var (package, path) = TryResolveFilePath(_sourceMap.GetOriginalFilePath(file) ?? file);
+
+            return package?.TryGetCommitHistory(path, committish) ?? Array.Empty<GitCommit>();
         }
 
         /// <summary>
@@ -255,6 +262,13 @@ namespace Microsoft.Docs.Build
 
         private (Package, PathString) ResolveFilePath(FilePath file)
         {
+            var (package, path) = TryResolveFilePath(file);
+
+            return (package ?? throw new InvalidOperationException(), path);
+        }
+
+        private (Package?, PathString) TryResolveFilePath(FilePath file)
+        {
             switch (file.Origin)
             {
                 case FileOrigin.Main:
@@ -276,38 +290,22 @@ namespace Microsoft.Docs.Build
                     return (_fallbackPackage, file.Path);
 
                 default:
-                    throw new InvalidOperationException();
+                    return default;
             }
         }
 
         private byte[]? ReadBytesFromGit(FilePath file)
         {
-            var (package, path) = ResolveFilePath(file);
-
-            return ReadBytesFromGit(package.TryGetGitFilePath(path));
-        }
-
-        private byte[]? ReadBytesFromGit(PathString? physicalPath)
-        {
-            if (physicalPath is null)
+            return _gitBlobCache.GetOrAdd(file, key =>
             {
-                return null;
-            }
-
-            var (repo, pathToRepo) = _repositoryProvider.GetRepository(physicalPath.Value);
-            if (repo is null || pathToRepo is null)
-            {
-                return null;
-            }
-
-            return _gitBlobCache.GetOrAdd(physicalPath.Value, path =>
-            {
-                var (repo, _, commits) = _repositoryProvider.GetCommitHistory(path);
-                if (repo is null || commits.Length <= 1)
+                var (package, path) = ResolveFilePath(key);
+                var commits = package.TryGetCommitHistory(path);
+                if (commits.Length <= 1)
                 {
                     return null;
                 }
-                return GitUtility.ReadBytes(repo.Path, pathToRepo, commits[1].Sha);
+
+                return package.TryReadBytes(path, commits[1].Sha);
             });
         }
     }
