@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Enumeration;
 using System.Linq;
@@ -13,7 +14,7 @@ namespace Microsoft.Docs.Build
 {
     internal static class ConfigLoader
     {
-        public static (string docsetPath, string? outputPath)[] FindDocsets(ErrorBuilder errors, string workingDirectory, CommandLineOptions options)
+        public static IEnumerable<(string docsetPath, string? outputPath)> FindDocsets(ErrorBuilder errors, string workingDirectory, CommandLineOptions options)
         {
             var glob = FindDocsetsGlob(errors, workingDirectory);
             if (glob is null)
@@ -35,14 +36,14 @@ namespace Microsoft.Docs.Build
                 },
             };
 
-            return (
+            return
                 from file in files
                 let configPath = Path.GetRelativePath(workingDirectory, file)
                 where glob(configPath)
                 let docsetPath = Path.GetDirectoryName(file)
                 let docsetFolder = Path.GetRelativePath(workingDirectory, docsetPath)
                 let outputPath = string.IsNullOrEmpty(options.Output) ? null : Path.Combine(options.Output, docsetFolder)
-                select (docsetPath, outputPath)).Distinct().ToArray();
+                select (docsetPath, outputPath);
         }
 
         /// <summary>

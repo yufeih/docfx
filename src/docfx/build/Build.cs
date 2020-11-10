@@ -16,17 +16,20 @@ namespace Microsoft.Docs.Build
         {
             var stopwatch = Stopwatch.StartNew();
             using var errors = new ErrorWriter(options.Log);
+
+            var hasDocset = false;
             var docsets = ConfigLoader.FindDocsets(errors, workingDirectory, options);
-            if (docsets.Length == 0)
+            Parallel.ForEach(docsets, docset =>
+            {
+                hasDocset = true;
+                BuildDocset(errors, workingDirectory, docset.docsetPath, docset.outputPath, options);
+            });
+
+            if (!hasDocset)
             {
                 errors.Add(Errors.Config.ConfigNotFound(workingDirectory));
                 return errors.HasError;
             }
-
-            Parallel.ForEach(docsets, docset =>
-            {
-                BuildDocset(errors, workingDirectory, docset.docsetPath, docset.outputPath, options);
-            });
 
             Telemetry.TrackOperationTime("build", stopwatch.Elapsed);
             Log.Important($"Build done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
@@ -68,6 +71,8 @@ namespace Microsoft.Docs.Build
                 errors = new ErrorLog(errors, config, sourceMap, validationRules);
 
                 using var context = new Context(errors, config, buildOptions, packageResolver, fileResolver, sourceMap, repositoryProvider);
+                return;
+
                 Run(context);
 
                 new OpsPostProcessor(config, errors, buildOptions, opsAccessor, context.JsonSchemaTransformer.GetValidateExternalXrefs()).Run();

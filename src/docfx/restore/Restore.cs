@@ -16,17 +16,19 @@ namespace Microsoft.Docs.Build
             var stopwatch = Stopwatch.StartNew();
             using var errors = new ErrorWriter(options.Log);
 
+            var hasDocset = false;
             var docsets = ConfigLoader.FindDocsets(errors, workingDirectory, options);
-            if (docsets.Length == 0)
+            Parallel.ForEach(docsets, docset =>
+            {
+                hasDocset = true;
+                RestoreDocset(errors, workingDirectory, docset.docsetPath, docset.outputPath, options, FetchOptions.Latest);
+            });
+
+            if (!hasDocset)
             {
                 errors.Add(Errors.Config.ConfigNotFound(workingDirectory));
                 return errors.HasError;
             }
-
-            Parallel.ForEach(docsets, docset =>
-            {
-                RestoreDocset(errors, workingDirectory, docset.docsetPath, docset.outputPath, options, FetchOptions.Latest);
-            });
 
             Telemetry.TrackOperationTime("restore", stopwatch.Elapsed);
             Log.Important($"Restore done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
