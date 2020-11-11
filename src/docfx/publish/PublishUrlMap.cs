@@ -94,8 +94,7 @@ namespace Microsoft.Docs.Build
                         _buildScope.GetFiles(ContentType.Resource).Where(x => x.Origin != FileOrigin.Fallback || _config.OutputType == OutputType.Html),
                         file => AddItem(builder, file)),
                     () => ParallelUtility.ForEach(
-                        _errors, _buildScope.GetFiles(ContentType.Page).Where(x => x.Origin != FileOrigin.Fallback), file => AddItem(builder, file)),
-                    () => ParallelUtility.ForEach(_errors, _tocMap.GetFiles(), file => AddItem(builder, file)));
+                        _errors, _buildScope.GetFiles(ContentType.Page).Where(x => x.Origin != FileOrigin.Fallback), file => AddItem(builder, file)));
             }
 
             // resolve output path conflicts

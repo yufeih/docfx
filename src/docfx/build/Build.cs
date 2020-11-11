@@ -71,7 +71,7 @@ namespace Microsoft.Docs.Build
 
                 errors = new ErrorLog(errors, config, sourceMap, validationRules);
 
-                for (var i = 0; i < 10; i++)
+                for (var i = 0; i < 4; i++)
                 {
                     using (Progress.Start("Build a single file"))
                     {
