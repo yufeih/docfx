@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Docs.Validation;
 
@@ -70,12 +71,14 @@ namespace Microsoft.Docs.Build
 
                 errors = new ErrorLog(errors, config, sourceMap, validationRules);
 
-                using var context = new Context(errors, config, buildOptions, packageResolver, fileResolver, sourceMap, repositoryProvider);
-                return;
-
-                Run(context);
-
-                new OpsPostProcessor(config, errors, buildOptions, opsAccessor, context.JsonSchemaTransformer.GetValidateExternalXrefs()).Run();
+                for (var i = 0; i < 10; i++)
+                {
+                    using (Progress.Start("Build a single file"))
+                    {
+                        using var context = new Context(errors, config, buildOptions, packageResolver, fileResolver, sourceMap, repositoryProvider);
+                        Run(context);
+                    }
+                }
             }
             catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
             {
@@ -85,55 +88,25 @@ namespace Microsoft.Docs.Build
 
         private static void Run(Context context)
         {
-            using (Progress.Start("Building files"))
-            {
-                ParallelUtility.ForEach(
-                    context.ErrorBuilder,
-                    context.PublishUrlMap.GetAllFiles(),
-                    file => BuildFile(context, file));
+            ParallelUtility.ForEach(
+                context.ErrorBuilder,
+                context.PublishUrlMap.GetAllFiles().Where(file => file.Origin == FileOrigin.Main && file.Format == FileFormat.Markdown).Take(1),
+                file => BuildFile(context, file));
 
-                ParallelUtility.ForEach(
-                    context.ErrorBuilder,
-                    context.LinkResolver.GetAdditionalResources(),
-                    file => BuildResource.Build(context, file));
-            }
+            ParallelUtility.ForEach(
+                context.ErrorBuilder,
+                context.LinkResolver.GetAdditionalResources(),
+                file => BuildResource.Build(context, file));
 
             Parallel.Invoke(
                 () => context.BookmarkValidator.Validate(),
                 () => context.ContentValidator.PostValidate(),
                 () => context.ErrorBuilder.AddRange(context.MetadataValidator.PostValidate()),
-                () => context.ContributionProvider.Save(),
-                () => context.RepositoryProvider.Save(),
-                () => context.ErrorBuilder.AddRange(context.GitHubAccessor.Save()),
-                () => context.ErrorBuilder.AddRange(context.MicrosoftGraphAccessor.Save()),
                 () => context.JsonSchemaTransformer.PostValidate());
-
-            // TODO: explicitly state that ToXrefMapModel produces errors
-            var xrefMapModel = context.XrefResolver.ToXrefMapModel(context.BuildOptions.IsLocalizedBuild);
-            var (publishModel, fileManifests) = context.PublishModelBuilder.Build();
 
             if (context.Config.DryRun)
             {
                 return;
-            }
-
-            // TODO: decouple files and dependencies from legacy.
-            var dependencyMap = context.DependencyMapBuilder.Build();
-
-            MemoryCache.Clear();
-
-            Parallel.Invoke(
-                () => context.TemplateEngine.CopyAssetsToOutput(),
-                () => context.Output.WriteJson(".xrefmap.json", xrefMapModel),
-                () => context.Output.WriteJson(".publish.json", publishModel),
-                () => context.Output.WriteJson(".dependencymap.json", dependencyMap.ToDependencyMapModel()),
-                () => context.Output.WriteJson(".links.json", context.FileLinkMapBuilder.Build(context.PublishUrlMap.GetAllFiles())),
-                () => context.Output.WriteText(".lunr.json", context.SearchIndexBuilder.Build()),
-                () => Legacy.ConvertToLegacyModel(context.BuildOptions.DocsetPath, context, fileManifests, dependencyMap));
-
-            using (Progress.Start("Waiting for pending outputs"))
-            {
-                context.Output.WaitForCompletion();
             }
         }
 
