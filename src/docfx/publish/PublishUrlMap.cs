@@ -17,7 +17,6 @@ namespace Microsoft.Docs.Build
         private readonly RedirectionProvider _redirectionProvider;
         private readonly DocumentProvider _documentProvider;
         private readonly MonikerProvider _monikerProvider;
-        private readonly TocMap _tocMap;
 
         private readonly HashSet<FilePath> _files;
         private readonly IReadOnlyDictionary<string, List<PublishUrlMapItem>> _publishUrlMap;
@@ -29,8 +28,7 @@ namespace Microsoft.Docs.Build
             BuildScope buildScope,
             RedirectionProvider redirectionProvider,
             DocumentProvider documentProvider,
-            MonikerProvider monikerProvider,
-            TocMap tocMap)
+            MonikerProvider monikerProvider)
         {
             _config = config;
             _errors = errors;
@@ -38,7 +36,6 @@ namespace Microsoft.Docs.Build
             _redirectionProvider = redirectionProvider;
             _documentProvider = documentProvider;
             _monikerProvider = monikerProvider;
-            _tocMap = tocMap;
             _publishUrlMap = Initialize();
             _files = _publishUrlMap.Values.SelectMany(x => x).Select(x => x.SourcePath).ToHashSet();
         }
@@ -94,8 +91,7 @@ namespace Microsoft.Docs.Build
                         _buildScope.GetFiles(ContentType.Resource).Where(x => x.Origin != FileOrigin.Fallback || _config.OutputType == OutputType.Html),
                         file => AddItem(builder, file)),
                     () => ParallelUtility.ForEach(
-                        _errors, _buildScope.GetFiles(ContentType.Page).Where(x => x.Origin != FileOrigin.Fallback), file => AddItem(builder, file)),
-                    () => ParallelUtility.ForEach(_errors, _tocMap.GetFiles(), file => AddItem(builder, file)));
+                        _errors, _buildScope.GetFiles(ContentType.Page).Where(x => x.Origin != FileOrigin.Fallback), file => AddItem(builder, file)));
             }
 
             // resolve output path conflicts

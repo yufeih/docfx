@@ -131,7 +131,7 @@ namespace Microsoft.Docs.Build
                 _errors.CustomRuleProvider = customRuleProvider; // TODO use better way to inject
 
                 var tocMap = new TocMap(_config, _errors, _input, _buildScope, dependencyMapBuilder, tocParser, tocLoader, _documentProvider, contentValidator);
-                publishUrlMap = new PublishUrlMap(_config, _errors, _buildScope, redirectionProvider, _documentProvider, _monikerProvider, tocMap);
+                publishUrlMap = new PublishUrlMap(_config, _errors, _buildScope, redirectionProvider, _documentProvider, _monikerProvider);
 
                 var metadataValidator = new MetadataValidator(_config, _microsoftGraphAccessor, _jsonSchemaLoader, _monikerProvider, customRuleProvider);
 
@@ -142,7 +142,7 @@ namespace Microsoft.Docs.Build
 
                 var filesToBuild = files.Length > 0
                     ? files.Select(file => FilePath.Content(new PathString(file))).Where(file => _input.Exists(file) && _buildScope.Contains(file.Path)).ToHashSet()
-                    : publishUrlMap.GetAllFiles();
+                    : publishUrlMap.GetAllFiles().Concat(tocMap.GetFiles()).ToHashSet();
 
                 using (Progress.Start($"Building {filesToBuild.Count} files"))
                 {
