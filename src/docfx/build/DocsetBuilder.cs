@@ -108,14 +108,17 @@ namespace Microsoft.Docs.Build
                 JsonSchemaTransformer? jsonSchemaTransformer = null;
                 ContentValidator? contentValidator = null;
 
+                var bookmarkValidator = new BookmarkValidator(_errors);
                 var dependencyMapBuilder = new DependencyMapBuilder(_sourceMap);
                 var output = new Output(_buildOptions.OutputPath, _input, _config.DryRun);
+                var fileLinkMapBuilder = new FileLinkMapBuilder(_errors, _documentProvider, _monikerProvider, _contributionProvider);
+                var searchIndexBuilder = new SearchIndexBuilder(_config, _errors, _documentProvider, _metadataProvider);
+                var publishModelBuilder = new PublishModelBuilder(_config, _errors, _monikerProvider, _buildOptions, _sourceMap, _documentProvider);
+
                 var zonePivotProvider = new ZonePivotProvider(_config, _errors, _documentProvider, _metadataProvider, _input, new Lazy<PublishUrlMap>(() => publishUrlMap!), new Lazy<ContentValidator>(() => contentValidator!));
                 var redirectionProvider = new RedirectionProvider(_buildOptions.DocsetPath, _config.HostName, _errors, _buildScope, _buildOptions.Repository, _documentProvider, _monikerProvider, new Lazy<PublishUrlMap>(() => publishUrlMap!));
                 contentValidator = new ContentValidator(_config, _fileResolver, _errors, _documentProvider, _monikerProvider, zonePivotProvider, new Lazy<PublishUrlMap>(() => publishUrlMap!));
 
-                var bookmarkValidator = new BookmarkValidator(_errors);
-                var fileLinkMapBuilder = new FileLinkMapBuilder(_errors, _documentProvider, _monikerProvider, _contributionProvider);
                 var xrefResolver = new XrefResolver(_config, _fileResolver, _buildOptions.Repository, dependencyMapBuilder, fileLinkMapBuilder, _errors, _documentProvider, _metadataProvider, _monikerProvider, _buildScope, new Lazy<JsonSchemaTransformer>(() => jsonSchemaTransformer!));
                 var linkResolver = new LinkResolver(_config, _buildOptions, _buildScope, redirectionProvider, _documentProvider, bookmarkValidator, dependencyMapBuilder, xrefResolver, _templateEngine, fileLinkMapBuilder, _metadataProvider);
                 var markdownEngine = new MarkdownEngine(_config, _input, _fileResolver, linkResolver, xrefResolver, _documentProvider, _metadataProvider, _monikerProvider, _templateEngine, contentValidator, new Lazy<PublishUrlMap>(() => publishUrlMap!));
@@ -130,18 +133,16 @@ namespace Microsoft.Docs.Build
                 var tocMap = new TocMap(_config, _errors, _input, _buildScope, dependencyMapBuilder, tocParser, tocLoader, _documentProvider, contentValidator);
                 publishUrlMap = new PublishUrlMap(_config, _errors, _buildScope, redirectionProvider, _documentProvider, _monikerProvider, tocMap);
 
-                var filesToBuild = files.Length > 0
-                    ? files.Select(file => FilePath.Content(new PathString(file))).Where(file => _input.Exists(file) && _buildScope.Contains(file.Path)).ToHashSet()
-                    : publishUrlMap.GetAllFiles();
-
-                var publishModelBuilder = new PublishModelBuilder(filesToBuild, _config, _errors, _monikerProvider, _buildOptions, _sourceMap, _documentProvider);
                 var metadataValidator = new MetadataValidator(_config, _microsoftGraphAccessor, _jsonSchemaLoader, _monikerProvider, customRuleProvider);
-                var searchIndexBuilder = new SearchIndexBuilder(_config, _errors, _documentProvider, _metadataProvider);
 
                 var resourceBuilder = new ResourceBuilder(_input, _documentProvider, _config, output, publishModelBuilder);
                 var pageBuilder = new PageBuilder(_config, _buildOptions, _input, output, _documentProvider, _metadataProvider, _monikerProvider, _templateEngine, tocMap, linkResolver, _contributionProvider, bookmarkValidator, publishModelBuilder, contentValidator, metadataValidator, markdownEngine, searchIndexBuilder, redirectionProvider, jsonSchemaTransformer);
                 var tocBuilder = new TocBuilder(_config, tocLoader, contentValidator, _metadataProvider, metadataValidator, _documentProvider, _monikerProvider, publishModelBuilder, _templateEngine, output);
                 var redirectionBuilder = new RedirectionBuilder(publishModelBuilder, redirectionProvider, _documentProvider);
+
+                var filesToBuild = files.Length > 0
+                    ? files.Select(file => FilePath.Content(new PathString(file))).Where(file => _input.Exists(file) && _buildScope.Contains(file.Path)).ToHashSet()
+                    : publishUrlMap.GetAllFiles();
 
                 using (Progress.Start($"Building {filesToBuild.Count} files"))
                 {
@@ -161,7 +162,7 @@ namespace Microsoft.Docs.Build
 
                 // TODO: explicitly state that ToXrefMapModel produces errors
                 var xrefMapModel = xrefResolver.ToXrefMapModel(_buildOptions.IsLocalizedBuild);
-                var (publishModel, fileManifests) = publishModelBuilder.Build();
+                var (publishModel, fileManifests) = publishModelBuilder.Build(filesToBuild);
 
                 if (_config.DryRun)
                 {
