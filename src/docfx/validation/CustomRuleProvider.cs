@@ -14,7 +14,6 @@ namespace Microsoft.Docs.Build
         private readonly DocumentProvider _documentProvider;
         private readonly Lazy<PublishUrlMap> _publishUrlMap;
         private readonly MonikerProvider _monikerProvider;
-        private readonly MetadataProvider _metaDataProvider;
 
         private readonly ErrorBuilder _errorLog;
         private readonly Config _config;
@@ -26,13 +25,11 @@ namespace Microsoft.Docs.Build
             DocumentProvider documentProvider,
             Lazy<PublishUrlMap> publishUrlMap,
             MonikerProvider monikerProvider,
-            MetadataProvider metadataProvider,
             ErrorBuilder errorLog)
         {
             _documentProvider = documentProvider;
             _publishUrlMap = publishUrlMap;
             _monikerProvider = monikerProvider;
-            _metaDataProvider = metadataProvider;
             _errorLog = errorLog;
             _config = config;
 
@@ -64,17 +61,10 @@ namespace Microsoft.Docs.Build
 
         public Error ApplyCustomRule(Error error)
         {
-            if (TryGetCustomRule(error, out var customRule))
-            {
-                error = WithCustomRule(error, customRule);
-            }
-            var source = error.Source?.File;
-            var userMetadata = source != null ? _metaDataProvider.GetMetadata(ErrorBuilder.Null, source) : null;
-            error = error.WithMsAuthor(userMetadata?.MsAuthor);
-            return error;
+            return TryGetCustomRule(error, out var customRule) ? ApplyCustomRule(error, customRule) : error;
         }
 
-        public static Error WithCustomRule(Error error, CustomRule customRule, bool? enabled = null)
+        public static Error ApplyCustomRule(Error error, CustomRule customRule, bool? enabled = null)
         {
             var level = customRule.Severity ?? error.Level;
 
