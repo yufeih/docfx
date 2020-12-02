@@ -60,9 +60,9 @@ namespace Microsoft.Docs.Build
             }
         }
 
-        [YamlTest("~/docs/specs/**/*.yml", ExpandTest = nameof(ExpandTest))]
+        [YamlTest("~/docs/specs/**/*.yml", ExpandTest = nameof(ExpandTest), UpdateSource = true)]
         [MarkdownTest("~/docs/designs/**/*.md", ExpandTest = nameof(ExpandTest))]
-        public static void Run(TestData test, DocfxTestSpec spec)
+        public static DocfxTestSpec Run(TestData test, DocfxTestSpec spec)
         {
             if (!OsMatches(spec.OS))
             {
@@ -94,6 +94,7 @@ namespace Microsoft.Docs.Build
                     t_remoteFiles.Value = null;
                     t_appDataPath.Value = null;
                 }
+                return spec;
             }
         }
 
