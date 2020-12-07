@@ -182,6 +182,50 @@ namespace Microsoft.Docs.Build
         }
 
         [Fact]
+        public static void Watch_Value_Do_Not_Reevaluate_On_No_Dependency_Value_Change()
+        {
+            var changeToken = 0;
+            var counterA = 0;
+            var counterB = 0;
+
+            var a = new Watch<int>(() => ++counterA + Watcher.Watch(() => 0, () => changeToken++));
+            var b = new Watch<int>(() => ++counterB + a.Value);
+
+            Assert.Equal(1, a.Value);
+            Assert.Equal(1, a.Value);
+            Assert.Equal(2, b.Value);
+            Assert.Equal(2, b.Value);
+
+            Watcher.StartActivity();
+
+            Assert.Equal(2, a.Value);
+            Assert.Equal(2, a.Value);
+            Assert.Equal(2, b.Value);
+            Assert.Equal(2, b.Value);
+        }
+
+        [Fact]
+        public static void Watch_Value_Dedup_Same_Dependency_Func()
+        {
+            var changeToken = 0;
+            var counter = 0;
+            var watch = new Watch<int>(() => ++counter + Foo() + Bar());
+
+            int Foo() => Watcher.Watch(() => 0, UpdateChangeToken);
+            int Bar() => Watcher.Watch(() => 0, UpdateChangeToken);
+
+            int UpdateChangeToken() => ++changeToken;
+
+            Assert.Equal(1, watch.Value);
+            Assert.Equal(1, changeToken);
+
+            Watcher.StartActivity();
+
+            Assert.Equal(2, watch.Value);
+            Assert.Equal(2, changeToken);
+        }
+
+        [Fact]
         public static void Watch_Value_Rebuild_Dependency_Graph_On_Dependency_Change()
         {
             var exists = false;

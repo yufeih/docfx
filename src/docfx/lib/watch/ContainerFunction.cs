@@ -32,10 +32,10 @@ namespace Microsoft.Docs.Build
             }
 
             _activityId = currentActivityId;
-            return _hasChanged = HasChangedCore();
+            return _hasChanged = HasChildrenChanged();
         }
 
-        private bool HasChangedCore()
+        private bool HasChildrenChanged()
         {
             lock (_children)
             {
