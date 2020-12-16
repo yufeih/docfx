@@ -53,7 +53,7 @@ namespace Microsoft.Docs.Build
             _fileResolver = fileResolver;
             _opsAccessor = opsAccessor;
             _repositoryProvider = repositoryProvider;
-            _sourceMap = new(errors, new PathString(_buildOptions.DocsetPath), _config, _fileResolver);
+            _sourceMap = new(errors, new(_buildOptions.DocsetPath), _config, _fileResolver);
             _input = new(_buildOptions, _config, _packageResolver, _repositoryProvider, _sourceMap, package);
             _buildScope = new(_config, _input, _buildOptions);
             _githubAccessor = new(_config);
@@ -117,10 +117,6 @@ namespace Microsoft.Docs.Build
         {
             try
             {
-                // TODO: Clear the error before each build round, which has the following two dependencies:
-                // 1. Make all the errorBuilders inside the docsetBuilder stateless.
-                // 2. If there are errors reported from all the Watch{T}, the errors should also be returned as a part of {T}
-                _errors.Clear();
                 JsonSchemaTransformer? jsonSchemaTransformer = null;
                 ContentValidator? contentValidator = null;
 

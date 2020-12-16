@@ -18,8 +18,6 @@ namespace Microsoft.Docs.Build
 
         public abstract bool FileHasError(FilePath file);
 
-        public abstract void Clear();
-
         public void AddIfNotNull(Error? error)
         {
             if (error != null)
@@ -80,8 +78,6 @@ namespace Microsoft.Docs.Build
 
             public override void Add(Error error) { }
 
-            public override void Clear() => throw new NotSupportedException();
-
             public override bool FileHasError(FilePath file) => throw new NotSupportedException();
         }
 
@@ -95,8 +91,6 @@ namespace Microsoft.Docs.Build
             public override bool HasError => Volatile.Read(ref _errorCount) > 0;
 
             public override bool FileHasError(FilePath file) => throw new NotSupportedException();
-
-            public override void Clear() => _errorCount = 0;
 
             public DelegatingErrorBuilder(ErrorBuilder errors, Func<Error, Error> convert)
             {

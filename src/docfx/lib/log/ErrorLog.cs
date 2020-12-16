@@ -35,13 +35,6 @@ namespace Microsoft.Docs.Build
             _customRuleProvider = customRuleProvider;
         }
 
-        public override void Clear()
-        {
-            _errors.Clear();
-            _errorSink.Clear();
-            _fileSink.Clear();
-        }
-
         public override void Add(Error error)
         {
             try
