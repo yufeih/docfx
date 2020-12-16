@@ -16,8 +16,6 @@ namespace Microsoft.Docs.Build
 
         public int Count => _items.Count;
 
-        public override bool HasError => _items.Any(item => item.Level == ErrorLevel.Error);
-
         public override void Add(Error error) => _items.Add(error);
 
         public override bool FileHasError(FilePath file) => throw new NotSupportedException();

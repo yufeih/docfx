@@ -4,15 +4,12 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Threading;
 
 namespace Microsoft.Docs.Build
 {
     internal abstract class ErrorBuilder
     {
         public static readonly ErrorBuilder Null = new NullErrorBuilder();
-
-        public abstract bool HasError { get; }
 
         public abstract void Add(Error error);
 
@@ -74,8 +71,6 @@ namespace Microsoft.Docs.Build
 
         private class NullErrorBuilder : ErrorBuilder
         {
-            public override bool HasError => throw new NotSupportedException();
-
             public override void Add(Error error) { }
 
             public override bool FileHasError(FilePath file) => throw new NotSupportedException();
@@ -86,28 +81,14 @@ namespace Microsoft.Docs.Build
             private readonly ErrorBuilder _errors;
             private readonly Func<Error, Error> _convert;
 
-            private int _errorCount;
-
-            public override bool HasError => Volatile.Read(ref _errorCount) > 0;
-
             public override bool FileHasError(FilePath file) => throw new NotSupportedException();
+
+            public override void Add(Error error) => _errors.Add(_convert(error));
 
             public DelegatingErrorBuilder(ErrorBuilder errors, Func<Error, Error> convert)
             {
                 _errors = errors;
                 _convert = convert;
-            }
-
-            public override void Add(Error error)
-            {
-                error = _convert(error);
-
-                if (error.Level == ErrorLevel.Error)
-                {
-                    Interlocked.Increment(ref _errorCount);
-                }
-
-                _errors.Add(error);
             }
         }
     }

@@ -11,17 +11,17 @@ namespace Microsoft.Docs.Build
 {
     internal class Builder
     {
-        private readonly ErrorBuilder _errors;
         private readonly string _workingDirectory;
         private readonly CommandLineOptions _options;
         private readonly Watch<DocsetBuilder[]> _docsets;
         private readonly Package _package;
 
-        public Builder(ErrorBuilder errors, string workingDirectory, CommandLineOptions options, Package package)
+        private readonly Scoped<ErrorBuilder> _errors = new();
+
+        public Builder(string workingDirectory, CommandLineOptions options, Package package)
         {
             _workingDirectory = workingDirectory;
             _options = options;
-            _errors = errors;
             _package = package;
             _docsets = new(LoadDocsets);
         }
@@ -36,7 +36,7 @@ namespace Microsoft.Docs.Build
 
             package ??= new LocalPackage(workingDirectory);
 
-            new Builder(errors, workingDirectory, options, package).Build(files);
+            new Builder(workingDirectory, options, package).Build(errors, files);
 
             Telemetry.TrackOperationTime("build", stopwatch.Elapsed);
             Log.Important($"Build done in {Progress.FormatTimeSpan(stopwatch.Elapsed)}", ConsoleColor.Green);
@@ -45,17 +45,20 @@ namespace Microsoft.Docs.Build
             return errors.HasError;
         }
 
-        public void Build(params string[] files)
+        public void Build(ErrorBuilder errors, params string[] files)
         {
-            try
+            using (_errors.BeginScope(errors))
             {
-                Watcher.StartActivity();
+                try
+                {
+                    Watcher.StartActivity();
 
-                Parallel.ForEach(_docsets.Value, docset => docset.Build(Array.ConvertAll(files, path => GetPathToDocset(docset, path))));
-            }
-            catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
-            {
-                _errors.AddRange(dex);
+                    Parallel.ForEach(_docsets.Value, docset => docset.Build(Array.ConvertAll(files, path => GetPathToDocset(docset, path))));
+                }
+                catch (Exception ex) when (DocfxException.IsDocfxException(ex, out var dex))
+                {
+                    _errors.Value.AddRange(dex);
+                }
             }
         }
 
@@ -64,7 +67,7 @@ namespace Microsoft.Docs.Build
             var docsets = ConfigLoader.FindDocsets(_errors, _package, _options);
             if (docsets.Length == 0)
             {
-                _errors.Add(Errors.Config.ConfigNotFound(_workingDirectory));
+                _errors.Value.Add(Errors.Config.ConfigNotFound(_workingDirectory));
             }
 
             return (from docset in docsets

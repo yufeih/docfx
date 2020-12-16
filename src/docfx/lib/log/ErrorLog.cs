@@ -17,8 +17,6 @@ namespace Microsoft.Docs.Build
         private readonly ErrorSink _errorSink = new();
         private readonly ConcurrentDictionary<FilePath, ErrorSink> _fileSink = new();
 
-        public override bool HasError => _errors.HasError;
-
         public override bool FileHasError(FilePath file) => _fileSink.TryGetValue(file, out var sink) && sink.ErrorCount > 0;
 
         public ErrorLog(

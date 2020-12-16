@@ -23,8 +23,6 @@ namespace Microsoft.Docs.Build
 
         public int SuggestionCount => _suggestionCount;
 
-        public override bool HasError => Volatile.Read(ref _errorCount) > 0;
-
         public override bool FileHasError(FilePath file) => throw new NotSupportedException();
 
         public ErrorWriter(string? outputPath = null)

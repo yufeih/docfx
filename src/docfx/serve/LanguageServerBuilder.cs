@@ -16,7 +16,6 @@ namespace Microsoft.Docs.Build
     internal class LanguageServerBuilder
     {
         private readonly Builder _builder;
-        private readonly ErrorList _errorList;
         private readonly Channel<FileActionEvent> _eventChannel;
         private readonly ILanguageServer _languageServer;
         private readonly LanguageServerPackage _languageServerPackage;
@@ -29,9 +28,8 @@ namespace Microsoft.Docs.Build
 
             _workingDirectory = new(workingDirectory);
             _languageServer = languageServer;
-            _errorList = new();
             _languageServerPackage = new(new MemoryPackage(workingDirectory), package);
-            _builder = new(_errorList, workingDirectory, options, _languageServerPackage);
+            _builder = new(workingDirectory, options, _languageServerPackage);
             _eventChannel = eventChannel;
         }
 
@@ -76,19 +74,20 @@ namespace Microsoft.Docs.Build
 
         private void RebuildFiles()
         {
+            var errors = new ErrorList();
             var filesToBuild = _languageServerPackage.GetAllFilesInMemory();
-            _builder.Build(filesToBuild.Select(f => f.Value).ToArray());
+            _builder.Build(errors, filesToBuild.Select(f => f.Value).ToArray());
 
-            PublishDiagnosticsParams(filesToBuild);
+            PublishDiagnosticsParams(filesToBuild, errors);
         }
 
-        private void PublishDiagnosticsParams(IEnumerable<PathString> files)
+        private void PublishDiagnosticsParams(IEnumerable<PathString> files, ErrorList errors)
         {
             foreach (var file in files)
             {
                 if (file.StartsWithPath(_workingDirectory, out var relativePath))
                 {
-                    var diagnostics = from error in _errorList
+                    var diagnostics = from error in errors
                                       let source = error.Source
                                       where source != null && source.File.Path == relativePath
                                       select ConvertToDiagnostics(error, source);
