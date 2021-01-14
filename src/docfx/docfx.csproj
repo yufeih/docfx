@@ -3,8 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <IsPackable>true</IsPackable>
     <PackAsTool>true</PackAsTool>
-    <DefineConstants>DOCFX</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
