@@ -7,6 +7,8 @@ namespace Microsoft.Docs.Build
 {
     internal record Error
     {
+        private const int MaxMessageArgumentLength = 50;
+
         public ErrorLevel Level { get; init; }
 
         public string Code { get; init; }
@@ -31,10 +33,20 @@ namespace Microsoft.Docs.Build
         {
             Level = level;
             Code = code;
-            Message = message.ToString();
+            Message = string.Format(message.Format, Array.ConvertAll(message.GetArguments(), LimitLength));
             MessageArguments = message.GetArguments();
             Source = source;
             PropertyPath = propertyPath;
+
+            static string? LimitLength(object? arg)
+            {
+                var str = arg?.ToString();
+                if (str is null || str.Length <= MaxMessageArgumentLength)
+                {
+                    return str;
+                }
+                return str.Substring(0, MaxMessageArgumentLength) + "...";
+            }
         }
 
         public override string ToString()
