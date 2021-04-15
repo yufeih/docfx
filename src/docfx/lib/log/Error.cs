@@ -7,7 +7,7 @@ namespace Microsoft.Docs.Build
 {
     internal record Error
     {
-        private const int MaxMessageArgumentLength = 50;
+        private const int MaxMessageArgumentLength = 100;
 
         public ErrorLevel Level { get; init; }
 
@@ -29,6 +29,14 @@ namespace Microsoft.Docs.Build
 
         public AdditionalErrorInfo? AdditionalErrorInfo { get; init; }
 
+        private Error(ErrorLevel level, string code, string message, SourceInfo? source)
+        {
+            Level = level;
+            Code = code;
+            Message = message;
+            Source = source;
+        }
+
         public Error(ErrorLevel level, string code, FormattableString message, SourceInfo? source = null, string? propertyPath = null)
         {
             Level = level;
@@ -47,6 +55,11 @@ namespace Microsoft.Docs.Build
                 }
                 return str.Substring(0, MaxMessageArgumentLength) + "...";
             }
+        }
+
+        public static Error CreateFromExisting(ErrorLevel level, string code, string message, SourceInfo? source)
+        {
+            return new Error(level, code, message, source);
         }
 
         public override string ToString()

@@ -289,7 +289,7 @@ namespace Microsoft.Docs.Build
                     ? e.LineOffset > 0 || e.ColumnOffset > 0 ? sourceInfo.WithOffset(e.LineOffset + 1, e.ColumnOffset + 1) : sourceInfo
                     : null;
 
-                return new Error(level, e.Code, $"{e.Message}", source);
+                return Error.CreateFromExisting(level, e.Code, e.Message, source);
             }
         }
 
