@@ -560,6 +560,7 @@ inputs:
       img:
       - "https://docs.com"
       - "data:image/*"
+      video: []
   a.md: |
     [link](http://github.com)
     [link](https://github.com)
@@ -574,6 +575,8 @@ inputs:
     <img src="data:image/svg+xml,%3Csvg /svg%3E">
     <img src="//office.com/a.png">
     <image src="//office.com/b.png">
+    <video src="a.mp4" poster="a.png"></video>
+    <video src="https://microsoft.com/a.mp4" poster="https://microsoft.com/a.png"></video>
 outputs:
   a.json: |
     {
@@ -590,7 +593,10 @@ outputs:
         <img src=''>
         <img src='data:image/svg+xml,%3Csvg /svg%3E' data-linktype='external'>
         <img src=''>
-        <image src=''></p>"
+        <image src=''>
+        <video src='a.mp4' poster='a.png' data-linktype='relative-path'></video>
+        <video src='' poster=''></video>
+        </p>"
     }
   .errors.log: |
     { "message_severity": "suggestion", "code": "disallowed-domain", "message": "Url 'ms-windows-store://pdp?productId=9WZDNCRFHVJL' *", "file": "a.md" }
@@ -600,4 +606,8 @@ outputs:
     { "message_severity": "suggestion", "code": "external-image", "message": "Image 'https://microsoft.com/a.png' *", "file": "a.md" }
     { "message_severity": "suggestion", "code": "external-image", "message": "Image '//office.com/a.png' *", "file": "a.md" }
     { "message_severity": "suggestion", "code": "external-image", "message": "Image '//office.com/b.png' *", "file": "a.md" }
+    { "message_severity": "suggestion", "code": "disallowed-domain", "message": "Url 'https://microsoft.com/a.mp4' *", "file": "a.md" }
+    { "message_severity": "suggestion", "code": "disallowed-domain", "message": "Url 'https://microsoft.com/a.png' *", "file": "a.md" }
+    { "message_severity": "warning", "code": "file-not-found", "message": "Invalid file link: 'a.mp4'.", "file": "a.md" }
+    { "message_severity": "warning", "code": "file-not-found", "message": "Invalid file link: 'a.png'.", "file": "a.md" }
 ---
